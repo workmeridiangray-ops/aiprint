@@ -3,6 +3,7 @@ import type pg from 'pg';
 import { getPool, tx, AppError } from './db';
 import { hashPassword } from './auth';
 import type { Actor } from './auth';
+import { seatsInfo } from './vendor';
 
 const sha = (t: string) => createHash('sha256').update(t).digest('hex');
 const newToken = () => randomBytes(32).toString('base64url');
@@ -76,6 +77,9 @@ export async function invite(actor: Actor, email: string, role: string) {
   if (!ADMIN_ROLES.includes(actor.role)) throw new AppError('denied', 'Not permitted', 403);
   if (!INVITABLE.includes(role)) throw new AppError('invalid_role', 'Role cannot be invited');
   return tx(async c => {
+    const seats = await seatsInfo(c, actor.tenantId);
+    const pending = (await c.query("select count(*)::int n from auth_tokens where tenant_id=$1 and purpose='invite' and used_at is null and revoked_at is null and expires_at>now()", [actor.tenantId])).rows[0].n;
+    if (seats.used + pending >= seats.limit) throw new AppError('no_seats', 'Your plan has no free staff seats. Remove a member, wait for an invitation to expire, or change plan at renewal.', 409);
     const token = newToken();
     await c.query("insert into auth_tokens(purpose,token_hash,tenant_id,invite_email,invite_role,invited_by,expires_at) values('invite',$1,$2,lower($3),$4,$5, now() + interval '7 days')", [sha(token), actor.tenantId, email.trim(), role, actor.userId]);
     await queueEmail(c, email.trim(), 'invite', token);
@@ -91,6 +95,8 @@ export async function acceptInvite(token: string, password: string) {
     const tn = await c.query("select 1 from tenants where id=$1 and status='active'", [t.tenant_id]);
     if (!tn.rowCount) throw new AppError('invalid_token', 'This invitation is no longer valid');
     let uid: string;
+    const seats = await seatsInfo(c, t.tenant_id);
+    if (seats.used >= seats.limit) throw new AppError('no_seats', 'No staff seat is free any more. Ask the administrator.', 409); // rechecked at acceptance
     const ex = await c.query('select id from users where lower(email)=$1', [t.invite_email]);
     if (ex.rowCount) throw new AppError('account_exists', 'An account already exists for this email. Sign in, then ask the admin to add you.', 409); // never take over an existing account
     const u = await c.query('insert into users(email,password_hash,email_verified_at) values($1,$2,now()) returning id', [t.invite_email, hashPassword(password)]);

@@ -29,18 +29,18 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | SC-017 | Invite acceptance | Partial | POST /api/auth/accept-invite (no page yet), POST /api/members/invite | tests/identity.test.ts | No invite page or staff list UI |
 | SC-018 | Workspace selection | Not started | - | - | Not implemented |
 | SC-019 | Session and access states | Partial | API 401/403/404 mapping; /projects redirects to /login | tests/security.test.ts; HTTP smoke 401/403 | No dedicated expired-session/suspended/over-quota screens |
-| SC-020 | Vendor onboarding | Not started | - | - | Not implemented |
-| SC-021 | Branding and portal setup | Not started | - | - | Not implemented |
-| SC-022 | Subscription checkout and history | Not started | - | - | Not implemented |
-| SC-023 | Vendor overview | Not started | - | - | Not implemented |
+| SC-020 | Vendor onboarding | Partial | POST /api/vendors (no page yet); pending tenant, subscription row | tests/vendor.test.ts | No onboarding page/checklist; pending vendor admin cannot reach branding/pricing before activation; no owner review step; checkout blocked on payment provider |
+| SC-021 | Branding and portal setup | Partial | PATCH /api/vendor/branding; GET /api/portal/[slug] (public branding only); /vendor Branding | tests/vendor.test.ts; browser run | No logo upload; no portal page that applies branding; no website-entry widget |
+| SC-022 | Subscription checkout and history | Blocked | Subscription state machine; activateSubscription (internal, idempotent); scheduler.ts | tests/vendor.test.ts | Hosted checkout and verified payment events need the payment provider; no history UI; plan change is API only |
+| SC-023 | Vendor overview | Partial | /vendor overview; GET /api/vendor/overview | tests/vendor.test.ts; browser run | Basic counts only; no charts or date ranges |
 | SC-024 | Customers and customer detail | Not started | - | - | Not implemented |
-| SC-025 | Vendor staff and roles | Partial | POST /api/members/[id]/revoke | tests/identity.test.ts (last-admin, cross-tenant) | No staff UI, no role edit, no seat limits |
-| SC-026 | Service retail prices | Not started | - | - | Not implemented |
-| SC-027 | Counter project | Not started | - | - | Not implemented |
-| SC-028 | Counter payment and receipt | Not started | - | - | Not implemented |
-| SC-029 | Counter output override | Not started | - | - | Not implemented |
+| SC-025 | Vendor staff and roles | Partial | /vendor Staff table: role change, remove, invite; seat limits | tests/vendor.test.ts; browser run | Invite email delivery not wired; no resend; no bulk archive |
+| SC-026 | Service retail prices | Partial | /vendor Customer prices; PUT /api/vendor/pricing; platform pricing POST /api/platform/pricing | tests/vendor.test.ts; browser run | Per-megapixel + minimum only; no per-service/format/enhancement prices; no price history view; no platform admin UI |
+| SC-027 | Counter project | Partial | /counter step 1-2 (customer, upload, price) | tests/vendor.test.ts; browser run | No customer search/reuse; fixed 300 dpi/3 mm bleed/PDF in the counter form; no editor on counter path |
+| SC-028 | Counter payment and receipt | Partial | /counter step 3-4; POST /api/counter/quotes/[id]/payment|reserve; receipt number | tests/vendor.test.ts; browser run | Receipt is a number only: no printable receipt page naming vendor/project/method; no refunds of counter payments |
+| SC-029 | Counter output override | Partial | recordCounterPayment overrideReason (admin only, audited) | tests/vendor.test.ts | No UI for override |
 | SC-030 | Claim walk-in project | Not started | - | - | Not implemented |
-| SC-031 | Vendor reports | Not started | - | - | Not implemented |
+| SC-031 | Vendor reports | Partial | Overview only | tests/vendor.test.ts | No reports/exports |
 | SC-032 | Vendor credits and top-up | Not started | - | - | Not implemented |
 | SC-033 | Vendor settlement statement | Not started | - | - | Not implemented |
 | SC-034 | Vendor settings and closure | Not started | - | - | Not implemented |
@@ -69,8 +69,8 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | SC-057 | Direct store workspace | Not started | - | - | Not implemented |
 | SC-058 | Platform customers | Not started | - | - | Not implemented |
 | SC-059 | Platform staff permissions | Not started | - | - | Not implemented |
-| SC-060 | Plans and quotas | Not started | - | - | Not implemented |
-| SC-061 | Global processing prices | Not started | - | - | Not implemented |
+| SC-060 | Plans and quotas | Partial | createPlan (immutable versions), POST /api/platform/plans | tests/vendor.test.ts | No platform UI; no quotas beyond staff seats; storage/job quotas not enforced |
+| SC-061 | Global processing prices | Partial | setPlatformPricing, POST /api/platform/pricing | tests/vendor.test.ts | No UI |
 | SC-062 | Jobs and job detail | Not started | - | - | Not implemented |
 | SC-063 | Payments and reconciliation | Not started | - | - | Not implemented |
 | SC-064 | Credit ledgers | Not started | - | - | Not implemented |
@@ -103,12 +103,12 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | AT-11 | Terminal failed job releases hold; direct payment tracks refund due/submitted/confirmed and never fa | Partial | Failed job releases hold: tested. Direct-payment refund tracking not built |
 | AT-12 | Browser closes before payment success: later verified event credits/unlocks once; wrong amount/curre | Not started | No test |
 | AT-13 | Direct unpaid raw-object access denied; paid exact-version download allowed; same-version redownload | Not started | No test |
-| AT-14 | Counter cash creates no platform-collected revenue/payable; vendor cost captured once and override l | Not started | No test |
+| AT-14 | Counter cash creates no platform-collected revenue/payable; vendor cost captured once and override l | Partial | Counter cash: no ledger entry, no payable; vendor charge captured once; override audited: tested. Reconciliation reports not built |
 | AT-15 | Business admin financial reporting does not expose unshared member artwork; shared project permissio | Not started | No test |
 | AT-16 | Full refund revokes future download entitlement; partial refund follows declared access policy; no d | Not started | No test |
 | AT-17 | Refund races with settlement: statement/payable reconcile and any recovery remains linked, not bank- | Not started | No test |
 | AT-18 | Prepared payout run modified after approval requires reapproval; failed/unknown transfer cannot dupl | Not started | No test |
-| AT-19 | Subscription expiry/downgrade blocks only defined new actions; retained paid outputs remain accessib | Not started | No test |
+| AT-19 | Subscription expiry/downgrade blocks only defined new actions; retained paid outputs remain accessib | Partial | Expired subscription blocks new paid jobs but keeps retrieval; 7-day grace; scheduled plan change at renewal: tested. Downgrade over-quota handling and storage quotas not built |
 | AT-20 | Retention warning, hold, revoke and purge apply to correct file copies; metadata stays; failed purge | Not started | No test |
 | AT-21 | Recover representative database + source + paid output + entitlement within approved targets; reconc | Not started | No test |
 | AT-22 | Metadata API p95 â‰¤2 seconds at defined load on approved infrastructure; queues remain fair, source/o | Not started | No test |
@@ -128,7 +128,7 @@ All **Not started** except where noted: WF-03 (customer starts project: upload â
 | ID | Workflow | Status |
 |---|---|---|
 | WF-01 | Vendor registers; approved plan | Not started |
-| WF-02 | Vendor invites staff; seat available | Not started |
+| WF-02 | Vendor invites staff; seat available | Partial |
 | WF-03 | Customer starts supported project | Partial |
 | WF-04 | Draft needs editing | Not started |
 | WF-05 | User authorises paid work | Not started |
@@ -145,7 +145,7 @@ All **Not started** except where noted: WF-03 (customer starts project: upload â
 | WF-16 | Financial correction | Not started |
 | WF-17 | Month-end settlement | Not started |
 | WF-18 | Beneficiary changes | Not started |
-| WF-19 | Subscription renewal/change | Not started |
+| WF-19 | Subscription renewal/change | Partial |
 | WF-20 | Suspension/downgrade | Not started |
 | WF-21 | Support escalation | Not started |
 | WF-22 | Closure/deletion | Not started |

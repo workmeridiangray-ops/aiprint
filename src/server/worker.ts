@@ -42,8 +42,8 @@ async function finalizeSuccess(c: pg.PoolClient, jobId: string, workerId: string
   await c.query(`insert into outputs(job_id,tenant_id,owner_user_id,file_id,format,width_px,height_px,sha256,validated_at,expires_at) values($1,$2,$3,$4,$5,$6,$7,$8,now(), now() + ($9 || ' days')::interval)`,
     [jobId, row.tenant_id, ownerId, fileId, v.format, v.width, v.height, v.sha256, String(RETENTION_DAYS)]);
   // Consumption: debit both accounts once (idempotent keys), then mark the hold consumed so it is no longer counted as held.
-  if (Number(row.customer_paise) > 0) await postEntry(c, row.customer_account_id, -Number(row.customer_paise), 'job_consumed', `consume:${row.reservation_id}:customer`);
-  if (Number(row.vendor_paise) > 0) await postEntry(c, row.vendor_account_id, -Number(row.vendor_paise), 'job_consumed', `consume:${row.reservation_id}:vendor`);
+  if (row.customer_account_id && Number(row.customer_paise) > 0) await postEntry(c, row.customer_account_id, -Number(row.customer_paise), 'job_consumed', `consume:${row.reservation_id}:customer`);
+  if (row.vendor_account_id && Number(row.vendor_paise) > 0) await postEntry(c, row.vendor_account_id, -Number(row.vendor_paise), 'job_consumed', `consume:${row.reservation_id}:vendor`);
   await c.query("update reservations set status='consumed' where id=$1", [row.reservation_id]);
   await c.query("update jobs set status='succeeded', finished_at=now(), lease_owner=null, lease_expires_at=null where id=$1", [jobId]);
   await c.query("update job_attempts set finished_at=now(), outcome='succeeded' where job_id=$1 and attempt_no=$2", [jobId, attempt]);

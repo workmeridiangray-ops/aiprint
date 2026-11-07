@@ -3,16 +3,9 @@ import type { Actor } from './auth';
 import { require as authorize } from './policy';
 import { validateSettings, outputPixels } from './projects';
 import { ensureAccount, available } from './ledger';
+import { priceFor, canProcess } from './vendor';
 
 export const QUOTE_TTL_MINUTES = 15;
-/** DEVELOPMENT PRICING PLACEHOLDER. Real, versioned rates come from vendor/platform pricing configuration (R3 s.9); not yet built. */
-export const PRICING_VERSION = 'dev-placeholder-v0';
-export function priceFor(totalPixels: number) {
-  const mp = totalPixels / 1_000_000;
-  const customer = Math.max(1000, Math.ceil(mp * 500));
-  const vendor = Math.ceil(customer * 0.2);
-  return { customer, vendor };
-}
 
 export async function createQuote(actor: Actor, projectId: string) {
   return tx(async c => {
@@ -23,11 +16,11 @@ export async function createQuote(actor: Actor, projectId: string) {
     catch { throw new AppError('not_found', 'Project not found', 404); }
     if (!p.source_file_id) throw new AppError('no_source', 'Add an image before requesting a price');
     const settings = validateSettings(p.settings);
-    const { customer, vendor } = priceFor(outputPixels(settings).total);
+    const { customer, vendor, retailId, platformId } = await priceFor(c, p.tenant_id, outputPixels(settings).total);
     const q = await c.query(
-      `insert into quotes(tenant_id,project_id,project_revision,source_file_id,settings_snapshot,customer_amount_paise,vendor_charge_paise,pricing_version,expires_at)
-       values($1,$2,$3,$9,$4,$5,$6,$7, now() + ($8 || ' minutes')::interval) returning id, expires_at`,
-      [p.tenant_id, p.id, p.revision, JSON.stringify(settings), customer, vendor, PRICING_VERSION, String(QUOTE_TTL_MINUTES), p.source_file_id]);
+      `insert into quotes(tenant_id,project_id,project_revision,source_file_id,settings_snapshot,customer_amount_paise,vendor_charge_paise,pricing_version,channel,retail_pricing_id,platform_pricing_id,expires_at)
+       values($1,$2,$3,$9,$4,$5,$6,$7,$10,$11,$12, now() + ($8 || ' minutes')::interval) returning id, expires_at`,
+      [p.tenant_id, p.id, p.revision, JSON.stringify(settings), customer, vendor, `retail:${retailId}/platform:${platformId ?? 'none'}`, String(QUOTE_TTL_MINUTES), p.source_file_id, p.counter_customer_id ? 'counter' : 'online', retailId, platformId]);
     return { quoteId: q.rows[0].id as string, expiresAt: q.rows[0].expires_at as Date, customerAmountPaise: customer, vendorChargePaise: vendor };
   });
 }
@@ -42,20 +35,22 @@ export async function reserveQuote(actor: Actor, quoteId: string) {
     try { authorize(actor, 'quote.reserve', { tenantId: q.tenant_id }); if (q.owner_user_id !== actor.userId) throw 0; }
     catch { throw new AppError('not_found', 'Quote not found', 404); }
 
+    if (q.channel !== 'online') throw new AppError('wrong_channel', 'Counter work is processed from the counter screen', 409);
     const existing = await c.query('select id from reservations where quote_id=$1', [quoteId]);
     if (existing.rowCount) { const j = await c.query('select id from jobs where reservation_id=$1', [existing.rows[0].id]); return { reservationId: existing.rows[0].id as string, jobId: j.rows[0].id as string, repeated: true }; }
 
     if (new Date(q.expires_at) <= new Date()) throw new AppError('quote_expired', 'This price has expired. Request a new price.', 409);
     if (q.current_revision !== q.project_revision) throw new AppError('quote_stale', 'The artwork changed after this price was given. Request a new price.', 409);
 
+    if (!(await canProcess(c, q.tenant_id))) throw new AppError('subscription_inactive', 'This service cannot process new work right now', 402);
     const custAcc = await ensureAccount(c, q.tenant_id, 'customer_service_credit', actor.userId);
-    const vendAcc = await ensureAccount(c, q.tenant_id, 'vendor_processing_credit', null);
-    for (const id of [custAcc, vendAcc].sort()) await c.query('select 1 from ledger_accounts where id=$1 for update', [id]);
+    const needVendor = Number(q.vendor_charge_paise) > 0;
+    const vendAcc = needVendor ? await ensureAccount(c, q.tenant_id, 'vendor_processing_credit', null) : null;
+    for (const id of [custAcc, vendAcc].filter(Boolean).sort() as string[]) await c.query('select 1 from ledger_accounts where id=$1 for update', [id]);
 
     const cb = await available(c, custAcc);
     if (cb.available < Number(q.customer_amount_paise)) throw new AppError('insufficient_customer_credit', 'Not enough service credit', 402);
-    const vb = await available(c, vendAcc);
-    if (vb.available < Number(q.vendor_charge_paise)) throw new AppError('vendor_unavailable', 'This service cannot process new work right now', 402);
+    if (needVendor && (await available(c, vendAcc!)).available < Number(q.vendor_charge_paise)) throw new AppError('vendor_unavailable', 'This service cannot process new work right now', 402);
 
     const res = await c.query('insert into reservations(quote_id,customer_account_id,vendor_account_id,customer_paise,vendor_paise) values($1,$2,$3,$4,$5) returning id',
       [quoteId, custAcc, vendAcc, q.customer_amount_paise, q.vendor_charge_paise]);
