@@ -1,3 +1,4 @@
+import { assertStorageAvailable, storageState } from './quota';
 import type pg from 'pg';
 import { z } from 'zod';
 import { getPool, tx, AppError } from './db';
@@ -51,12 +52,13 @@ export async function getPortal(slug: string) {
 }
 
 /* ---------- plans, subscription state machine ---------- */
-export async function createPlan(actor: Actor, p: { code: string; name: string; staffSeats: number; monthlyPricePaise: number }) {
+export async function createPlan(actor: Actor, p: { code: string; name: string; staffSeats: number; monthlyPricePaise: number; storageMb?: number | null }) {
   need(actor, ['platform_owner']);
   if (!Number.isInteger(p.staffSeats) || p.staffSeats < 1 || !Number.isInteger(p.monthlyPricePaise) || p.monthlyPricePaise < 0) throw new AppError('invalid_plan', 'Seats and price must be whole numbers');
   return tx(async c => {
     const v = await c.query('select coalesce(max(version),0)+1 as v from plans where code=$1', [p.code]);
-    const r = await c.query('insert into plans(code,version,name,staff_seats,monthly_price_paise,created_by) values($1,$2,$3,$4,$5,$6) returning id,version', [p.code, v.rows[0].v, p.name, p.staffSeats, p.monthlyPricePaise, actor.userId]);
+    if (p.storageMb != null && (!Number.isInteger(p.storageMb) || p.storageMb < 1)) throw new AppError('invalid_plan', 'Storage must be a whole number of megabytes, or empty for unlimited', 400);
+    const r = await c.query('insert into plans(code,version,name,staff_seats,monthly_price_paise,created_by,storage_mb) values($1,$2,$3,$4,$5,$6,$7) returning id,version', [p.code, v.rows[0].v, p.name, p.staffSeats, p.monthlyPricePaise, actor.userId, p.storageMb ?? null]);
     await audit(c, { actor: actor.userId, action: 'plan.create', type: 'plan', id: r.rows[0].id, outcome: 'ok' });
     return r.rows[0] as { id: string; version: number };
   });
@@ -238,6 +240,7 @@ export async function reserveCounter(actor: Actor, quoteId: string) {
     if (cur.rows[0].revision !== row.project_revision) throw new AppError('quote_stale', 'The artwork changed after this price was given. Request a new price.', 409);
     if (!(await c.query('select 1 from counter_payments where quote_id=$1', [quoteId])).rowCount) throw new AppError('payment_required', 'Record the customer payment, or an administrator override, before processing', 402);
     if (!(await canProcess(c, actor.tenantId))) throw new AppError('subscription_inactive', 'This store cannot process new work right now', 402);
+    await assertStorageAvailable(c, actor.tenantId);
     const vendAcc = await ensureAccount(c, actor.tenantId, 'vendor_processing_credit', null);
     await c.query('select 1 from ledger_accounts where id=$1 for update', [vendAcc]);
     if ((await available(c, vendAcc)).available < Number(row.vendor_charge_paise)) throw new AppError('vendor_unavailable', 'Processing credit is too low. Top up before processing counter work.', 402);
@@ -259,6 +262,7 @@ export async function overview(actor: Actor) {
     p.query("select id from ledger_accounts where tenant_id=$1 and kind='vendor_processing_credit'", [t]),
   ]);
   return {
+    storage: await storageState(p, t),
     customers: cust.rows[0].n, jobsByStatus: Object.fromEntries(jobs.rows.map(r => [r.status, r.n])),
     counterPayments: { count: pay.rows[0].n, totalPaise: Number(pay.rows[0].total), note: 'Recorded outside the platform; not platform-collected money' },
     subscription: sub.rows[0] ?? null, processingCredit: acc.rowCount ? await balance(acc.rows[0].id) : { settled: 0, held: 0, available: 0 },

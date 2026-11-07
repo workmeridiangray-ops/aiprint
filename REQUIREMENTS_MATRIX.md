@@ -190,7 +190,7 @@ Status is the weakest honest summary of the screens each group maps to.
 | PM-01 | Requirement traceability | Partial | This matrix; PDF and markdown not diffed |
 | PM-02 | Service and pricing definition | Partial | Plans and processing prices in tables; pricing is a labelled dev placeholder; no admin UI; no effective dates |
 | PM-03 | Quotes and stale prices | Partial | 15-minute expiry and stale on revision change; tests/projects-quotes.test.ts |
-| PM-04 | Downgrade and quota | Not started | No storage quota |
+| PM-04 | Downgrade and quota | Partial | Per-plan storage_mb (empty = unlimited); allowance follows the current subscription period, so a downgrade at renewal can leave a store over quota; then new uploads and new work are refused (storage_full) while downloads and deletes work and no paid file is removed; tests/quota.test.ts. Over-quota extra staff are not identified for admin resolution (seat downgrade handling not checked here); quota check on upload is not atomic, so concurrent uploads can overshoot by a few files |
 | PM-05 | Success and launch measures | Not started | No pilot metrics |
 | PM-06 | Communication and scope control | Partial | Continuation record kept in IMPLEMENTATION_STATUS.md; client owner not named |
 | FE-01 | Accessible interaction | Partial | Labelled forms and alert roles; no accessibility audit or keyboard test |
@@ -206,7 +206,7 @@ Status is the weakest honest summary of the screens each group maps to.
 | BE-04 | Reservation lifecycle | Partial | Quote expiry independent of held reservations; queued never-attempted jobs release their hold after HOLD_EXPIRY_MINUTES (default 30, proposed) via scheduler hold_expiry; running jobs keep holds; tests/downloads.test.ts. No age report for held-too-long running/unknown jobs |
 | BE-05 | Output integrity | Partial | Validate before publish, checksum stored; missing-file error surfaced |
 | BE-06 | Refund accounting | Not started | Blocked on provider |
-| BE-07 | Rate and storage controls | Partial | Enquiry limits and lockout; no per-tenant dispatch fairness, upload throttle or storage quota |
+| BE-07 | Rate and storage controls | Partial | Enquiry limits, lockout, storage allowance with graceful block and staff/vendor visibility (tests/quota.test.ts). No per-tenant dispatch fairness, no upload throttle, no alert when a store fills (shown on /admin only), upstream timeout settings n/a |
 | BE-08 | Reconciliation and recovery tests | Not started | Needs provider and restore |
 
 Annexes C–K: not mapped (not extracted from R3 in this pass).

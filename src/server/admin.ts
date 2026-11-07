@@ -9,11 +9,12 @@ export async function adminOverview(actor: Actor) {
   const q = (s: string, a: unknown[] = []) => getPool().query(s, a).then(r => r.rows);
   const [enq, plans, pricing, pols, tenants, direct] = await Promise.all([
     q("select status, count(*)::int n from enquiries group by status"),
-    q("select distinct on (code) code, version, name, staff_seats, monthly_price_paise from plans order by code, version desc"),
+    q("select distinct on (code) code, version, name, staff_seats, monthly_price_paise, storage_mb from plans order by code, version desc"),
     q("select per_mp_paise, min_paise, created_at from platform_pricing order by created_at desc, id desc limit 1"),
     q("select distinct on (slug) slug, version, effective_date::text as effective_date, approved_by_name from policies order by slug, version desc"),
     q(`select t.id, t.name, t.kind, t.status, t.created_at, p.slug, s.status as subscription, pl.name as plan,
-         (select count(*)::int from jobs j where j.tenant_id=t.id) as jobs
+         (select count(*)::int from jobs j where j.tenant_id=t.id) as jobs,
+         (select coalesce(sum(bytes),0)::bigint from stored_files f where f.tenant_id=t.id and f.deleted_at is null) as used_bytes, pl.storage_mb
        from tenants t left join vendor_profiles p on p.tenant_id=t.id left join subscriptions s on s.tenant_id=t.id
        left join subscription_periods sp on sp.id=s.current_period_id left join plans pl on pl.id=sp.plan_id
        where t.kind in ('vendor','direct') order by t.created_at desc limit 200`),
@@ -24,11 +25,11 @@ export async function adminOverview(actor: Actor) {
   return {
     canEditSettings: actor.role === 'platform_owner',
     enquiryCounts: counts,
-    plans: plans.map(p => ({ code: p.code, version: p.version, name: p.name, staffSeats: p.staff_seats, monthlyPricePaise: Number(p.monthly_price_paise) })),
+    plans: plans.map(p => ({ code: p.code, version: p.version, name: p.name, staffSeats: p.staff_seats, monthlyPricePaise: Number(p.monthly_price_paise), storageMb: p.storage_mb as number | null })),
     processingPrice: pricing[0] ? { perMpPaise: Number(pricing[0].per_mp_paise), minPaise: Number(pricing[0].min_paise) } : null,
     policies: POLICY_SLUGS.map(s => { const p = have.get(s); return { slug: s, published: !!p, version: p?.version ?? null, effectiveDate: p?.effective_date ?? null, approvedBy: p?.approved_by_name ?? null }; }),
     directStore: direct[0] ? { name: direct[0].name as string, slug: direct[0].slug as string } : null,
-    tenants: tenants.map(t => ({ id: t.id, name: t.name, kind: t.kind, status: t.status, slug: t.slug, subscription: t.subscription, plan: t.plan, jobs: t.jobs, createdAt: new Date(t.created_at).toISOString() })),
+    tenants: tenants.map(t => ({ id: t.id, name: t.name, kind: t.kind, status: t.status, slug: t.slug, subscription: t.subscription, plan: t.plan, jobs: t.jobs, storageUsedBytes: Number(t.used_bytes), storageQuotaBytes: t.kind === 'vendor' && t.storage_mb ? Number(t.storage_mb) * 1048576 : null, createdAt: new Date(t.created_at).toISOString() })),
   };
 }
 

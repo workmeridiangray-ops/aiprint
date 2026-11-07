@@ -18,7 +18,7 @@ Legend: teal = built and covered by tests; grey dashed = NOT BUILT (planned, or 
 | 09 | Payment events, duplicates, reconciliation | NOT BUILT (provider not chosen) |
 | 10 | Refunds and corrections | NOT BUILT |
 | 11 | Beneficiary approval and settlements | NOT BUILT |
-| 12 | Retention, closure, quota, restore | Retention and closure built; quota and backup/restore NOT BUILT |
+| 12 | Retention, closure, quota, restore | Retention, closure built; storage allowance built; backup/restore NOT BUILT |
 | 13 | Support escalation, exceptional access, incidents | Support built; exceptional access and incident reopening NOT BUILT |
 | 14 | Deployment, pilot, acceptance, handover | Process only; nothing deployed yet |
 

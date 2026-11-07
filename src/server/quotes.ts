@@ -1,3 +1,4 @@
+import { assertStorageAvailable } from './quota';
 import { audit } from './identity';
 import { getPool, tx, AppError } from './db';
 import type { Actor } from './auth';
@@ -50,6 +51,7 @@ async function reserveQuoteTx(actor: Actor, quoteId: string) {
     if (q.current_revision !== q.project_revision) throw new AppError('quote_stale', 'The artwork changed after this price was given. Request a new price.', 409);
 
     if (!(await canProcess(c, q.tenant_id))) throw new AppError('subscription_inactive', 'This service cannot process new work right now', 402);
+    await assertStorageAvailable(c, q.tenant_id);
     let member: { monthly_limit_paise: string | null; role: string } | null = null;
     if (q.org_id) { // lock the member row first (always before any account) so per-member caps are checked atomically
       const m = await c.query("select m.monthly_limit_paise, m.role from org_members m join organisations o on o.id=m.org_id where m.org_id=$1 and m.user_id=$2 and m.revoked_at is null and o.status='active' for update of m", [q.org_id, actor.userId]);

@@ -1,3 +1,4 @@
+import { assertStorageAvailable } from './quota';
 import sharp from 'sharp';
 import type { Metadata } from 'sharp';
 import { createHash, randomUUID } from 'node:crypto';
@@ -30,6 +31,7 @@ export async function inspectImage(buf: Buffer): Promise<Inspection> {
 export async function saveOriginal(actor: Actor, buf: Buffer) {
   authorize(actor, 'file.upload', { tenantId: actor.tenantId });
   const insp = await inspectImage(buf);
+  await assertStorageAvailable(getPool(), actor.tenantId, insp.bytes);
   const key = `${actor.tenantId}/${randomUUID()}.${insp.format === 'jpeg' ? 'jpg' : 'png'}`;
   await storage().put(key, buf);
   const r = await getPool().query(
