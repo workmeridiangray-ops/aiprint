@@ -19,10 +19,10 @@ Processes (all from the same build): `web` (next start), `worker`, `scheduler`, 
 - Redis down: nothing breaks; pickup falls back to a 5 second poll.
 
 ## Rollback
-Redeploy the previous build. Migrations are forward-only: do not roll the schema back; if a migration is faulty, restore the database backup taken in step 3 (restore is NOT yet proven, see incident runbook) or ship a corrective migration.
+Redeploy the previous build. Migrations are forward-only: do not roll the schema back; if a migration is faulty, restore the database backup taken in step 3 (restore procedure and its limits are in the incident runbook) or ship a corrective migration.
 
 ## Secrets
 MFA_ENC_KEY loss makes enrolled authenticator secrets unreadable: users must be reset by an owner. Keep it in the secret store, never in the repo. Rotating it is NOT built.
 
 ## Not built (do not promise)
-Payment provider integration, malware scanning, backups/restore automation, per-tenant storage quota, secret rotation.
+Payment provider integration, malware scanning, scheduled/automatic backups and off-site copies, per-tenant storage quota, secret rotation.

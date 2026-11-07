@@ -8,7 +8,7 @@ Updated: 2026-11-07. Spec baseline: R3 (MG-ARTWORK-2026-1107-R3), ₹12.5 lakh b
 - Decisions: scrypt password hashing; opaque session tokens stored hashed; tenant context resolved from an unrevoked membership, never trusted from the client; ledgers are integer paise, append-only (DB trigger), idempotent by key.
 - The separate physical-printing Framer project was never accessed. The 75-surface Framer design for this product lives in a different (Framer) project and was not used as a source here.
 
-## Implemented and tested (195 automated tests, real PostgreSQL)
+## Implemented and tested (200 automated tests, real PostgreSQL)
 - Sign-in/out, session expiry, revoked membership, duplicate/weak credentials. Origin check on mutating API calls.
 - Deny-by-default policy; tenant + owner isolation for projects, files, quotes; not-found instead of forbidden to prevent ID probing.
 - Upload inspection: JPG/PNG only, 25 MB, 40 MP, truncated/corrupt rejected, embedded vs untagged profile reported.
@@ -33,7 +33,7 @@ Updated: 2026-11-07. Spec baseline: R3 (MG-ARTWORK-2026-1107-R3), ₹12.5 lakh b
 - Explicit dev seed (`npm run seed:dev`) refuses staging/production.
 
 ## Verified by running
-- `npm test` → 18 files, 195 tests pass. `npm run typecheck` clean. `next build` succeeds.
+- `npm test` → 19 files, 200 tests pass. `npm run typecheck` clean. `next build` succeeds.
 - Live HTTP smoke against `next start`: no cookie 401, bad origin 403, wrong password 401, login → create project → upload → save → stale save conflict → quote → reserve all returned expected results. The browser UI was **not** driven in a real browser yet.
 
 ## Not built (see REQUIREMENTS_MATRIX.md for per-ID status)
@@ -78,6 +78,12 @@ Canvas drag-to-move and a corner resize handle (kept on-canvas so it can always 
 - When used >= allowance (or an upload would exceed it): new uploads and new reservations (online and counter) are refused with `storage_full`; downloads, deletions and retention are unaffected and nothing is removed automatically. Vendor admin sees usage on /vendor, staff see usage per store and the plan allowance on /admin.
 - Limits: upload check is not atomic (concurrent uploads can overshoot slightly); no alert is sent when a store fills; the allowance numbers per plan are not decided, so no plan has a limit until the owner sets one.
 - Tests: 5 new (tests/quota.test.ts).
+
+## Backup and restore (Part 19)
+- `npm run backup -- <dir>` (pg_dump custom format, then every live stored file through the configured storage driver, MANIFEST.json with checksums, counts and migrations; exit 3 if any file is missing or corrupt) and `npm run restore -- <dir>` (refuses a non-empty target, verifies dump and files, restores, signs everyone out, reconciles counts, ledger sum and every file checksum; exit 3 on any problem).
+- Drill (tests/restore.test.ts, 5 tests): real job, output and ledger data; live DB and files destroyed; restored into an empty database and empty storage; same output bytes downloaded after signing in with the original password; append-only ledger rule survived; corrupt dump, corrupt file, non-empty target and missing file are all detected.
+- Real-data finding: running the backup against the dev database reported 3 stored files missing from storage (dev leftovers). The backup said so and exited non-zero instead of pretending.
+- NOT proven: real hosting, S3 storage (the code uses the same storage layer but this drill ran on local disk), production data size, time to restore against a target, scheduled backups, off-site copies, encryption of the backup directory (the script does not encrypt), point-in-time recovery, provider event reconciliation (no provider exists).
 
 ## Next steps (in order)
 0. Organisation: profile form, per-person sharing, reassignment of removed members' projects, queued CSV exports, top-up (provider-blocked); the month boundary (IST) is my assumption: confirm with the client.

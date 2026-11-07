@@ -15,7 +15,9 @@
     "scheduler": "tsx scripts/scheduler.ts",
     "mailer": "tsx scripts/mailer.ts",
     "check:storage": "tsx scripts/check-storage.ts",
-    "dev:s3": "tsx scripts/dev-s3.ts"
+    "dev:s3": "tsx scripts/dev-s3.ts",
+    "backup": "tsx scripts/backup.ts",
+    "restore": "tsx scripts/restore.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1164.0",

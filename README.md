@@ -20,6 +20,9 @@ Local S3-protocol server: `npm run dev:s3` then set `STORAGE_DRIVER=s3` (see `.e
 Regenerate docs: `npx tsx scripts/docs/gen.ts` (routes, data model, dependencies) and `npx tsx scripts/docs/acceptance.ts` (output acceptance).
 Browser flows in `tests/e2e/` are manual scripts, not part of `npm test`.
 
+## Backup and restore
+`npm run backup -- <dir>` and `npm run restore -- <dir>`; procedure and limits in `docs/runbooks/incident.md`.
+
 ## Staging / production
 See `docs/runbooks/operator.md`. Staging and production fail closed: no local storage, no mail without a driver, no payment success without a provider.
 

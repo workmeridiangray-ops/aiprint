@@ -12,9 +12,9 @@ flowchart TD
   Z2 --> Z3["Access stops at once, email stays reserved"]
   Z3 --> Z4["After 7 days purge files unless held"]
   EX["Data export: 7 day link, own data only"]
-  BK["Backup and combined restore: NOT BUILT, no proof yet"]:::nb
+  BK["Backup: database dump then files + manifest<br/>Restore into empty DB and storage, sign everyone out, reconcile counts, ledger and file checksums<br/>Proven locally only; scheduling and real infrastructure not done"]
   QU["Storage allowance from the plan: new uploads and new work paused when full<br/>downloads and deletes still work, no paid file auto-removed"]
   classDef built fill:#e3f1f1,stroke:#0f5f63,color:#14202b
 classDef nb fill:#f1f1f1,stroke:#8a8a8a,stroke-dasharray:5 3,color:#555
 classDef fail fill:#fdeaea,stroke:#b3261e,color:#14202b
-  class QU,A,B,C,H,K,P,U,Z,Z1,Z2,Z3,Z4,EX built
+  class BK,QU,A,B,C,H,K,P,U,Z,Z1,Z2,Z3,Z4,EX built

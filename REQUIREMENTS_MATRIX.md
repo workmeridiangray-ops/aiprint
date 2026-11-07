@@ -110,7 +110,7 @@ Totals (refreshed in the gap pass): 75 surfaces; 54 partial, 2 blocked, 19 not s
 | AT-18 | Prepared payout run modified after approval requires reapproval; failed/unknown transfer cannot dupl | Not started | No test |
 | AT-19 | Subscription expiry/downgrade blocks only defined new actions; retained paid outputs remain accessib | Partial | Expired subscription blocks new paid jobs but keeps retrieval; 7-day grace; scheduled plan change at renewal: tested. Downgrade over-quota handling and storage quotas not built |
 | AT-20 | Retention warning, hold, revoke and purge apply to correct file copies; metadata stays; failed purge | Partial | tests/retention.test.ts covers one warning (rerun-safe), hold blocks purge, revoke, purge keeps metadata and ledger, failed purge recorded and retried, crash-recovery. Original-upload and preview copies are not yet covered |
-| AT-21 | Recover representative database + source + paid output + entitlement within approved targets; reconc | Not started | No test |
+| AT-21 | Recover representative database + source + paid output + entitlement within approved targets; reconc | Partial | tests/restore.test.ts (local drill: DB + files + ledger + entitlement restored and downloadable; no approved recovery targets, no real infrastructure, no provider events to reconcile) |
 | AT-22 | Metadata API p95 ≤2 seconds at defined load on approved infrastructure; queues remain fair, source/o | Not started | No test |
 | AT-23 | Supported phone flow completes upload/edit/price/pay/download; keyboard forms and numeric editor alt | Not started | No test |
 | AT-24 | Stale/expired-session/offline UI never falsely shows saved/paid; reconnect returns correct workspace | Not started | No test |
@@ -150,7 +150,7 @@ Status refreshed in the Part 14 gap pass against the code. **Partial** = real te
 | WF-21 | Support escalation | Partial (create, assign, request information, escalate, resolve with evidence, close; tests/support.test.ts). No attachments; emails carry reference only |
 | WF-22 | Closure/deletion | Partial (customer: request, reconcile, export, confirm, revoke, scheduled purge, holds; tests/account.test.ts). Vendor closure not built; no finance settlement step because refunds are blocked |
 | WF-23 | Retention job | Partial (scripts/scheduler.ts runs it hourly; last run and failures in job_runs; storage deletion works on local and S3 drivers, tests/storage.test.ts) |
-| WF-24 | Incident/restore | Not started |
+| WF-24 | Incident/restore | Partial (backup and restore scripts with reconciliation, runbook; proven locally only; no owner-approval reopen step, no provider event reconciliation) |
 
 ## Feature groups F-01–F-18 (R3 section 25 mapping)
 
@@ -174,8 +174,8 @@ Status is the weakest honest summary of the screens each group maps to.
 | F-14 | Beneficiaries and settlements | Not started | Blocked on provider |
 | F-15 | Reports, exports, audit | Partial | Customer data export; audit rows written for some actions; no audit search, no vendor reports |
 | F-16 | Support and escalations | Partial | Built; no attachments |
-| F-17 | Closure, deletion, incidents | Partial | Customer closure and deletion built; vendor closure, restore, incident register not built |
-| F-18 | Release, monitoring, handover | Partial | Docs, runbooks, health panel; no alerts, no deployed environment, no restore drill |
+| F-17 | Closure, deletion, incidents | Partial | Customer closure and deletion built; vendor closure, incident register not built; backup/restore proven locally only |
+| F-18 | Release, monitoring, handover | Partial | Docs, runbooks, health panel; no alerts, no deployed environment, restore drill run locally only |
 
 ## Requirement groups DEV / PM / FE / BE
 
@@ -207,7 +207,7 @@ Status is the weakest honest summary of the screens each group maps to.
 | BE-05 | Output integrity | Partial | Validate before publish, checksum stored; missing-file error surfaced |
 | BE-06 | Refund accounting | Not started | Blocked on provider |
 | BE-07 | Rate and storage controls | Partial | Enquiry limits, lockout, storage allowance with graceful block and staff/vendor visibility (tests/quota.test.ts). No per-tenant dispatch fairness, no upload throttle, no alert when a store fills (shown on /admin only), upstream timeout settings n/a |
-| BE-08 | Reconciliation and recovery tests | Not started | Needs provider and restore |
+| BE-08 | Reconciliation and recovery tests | Partial | Restore drill with reconciliation built (tests/restore.test.ts); worker death, expiry races and concurrent organisation spend tested earlier; webhook and refund-vs-payout races need the provider |
 
 Annexes C–K: not mapped (not extracted from R3 in this pass).
 
