@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { getPool, tx, AppError } from './db';
 import type { Actor } from './auth';
 import { require as authorize } from './policy';
+import { canReadProject } from './org';
 
 export const SettingsSchema = z.object({
   widthMm: z.number().min(1).max(500),
@@ -30,9 +31,13 @@ export function validateSettings(input: unknown): Settings {
   return r.data;
 }
 
-export async function createProject(actor: Actor, name: string) {
+export async function createProject(actor: Actor, name: string, orgId?: string) {
   authorize(actor, 'project.create', { tenantId: actor.tenantId });
-  const r = await getPool().query('insert into projects(tenant_id,owner_user_id,name) values($1,$2,$3) returning id,revision', [actor.tenantId, actor.userId, name.slice(0, 120)]);
+  if (orgId) {
+    const m = await getPool().query("select 1 from org_members m join organisations o on o.id=m.org_id where m.org_id=$1 and m.user_id=$2 and m.revoked_at is null and o.status='active' and o.tenant_id=$3", [orgId, actor.userId, actor.tenantId]);
+    if (!m.rowCount) throw new AppError('not_found', 'Organisation not found', 404);
+  }
+  const r = await getPool().query('insert into projects(tenant_id,owner_user_id,name,org_id) values($1,$2,$3,$4) returning id,revision', [actor.tenantId, actor.userId, name.slice(0, 120), orgId ?? null]);
   return r.rows[0] as { id: string; revision: number };
 }
 
@@ -40,8 +45,10 @@ async function loadOwned(c: { query: Function }, actor: Actor, id: string, actio
   const r = await c.query(`select * from projects where id=$1 ${lock ? 'for update' : ''}`, [id]);
   if (!r.rowCount) throw new AppError('not_found', 'Project not found', 404);
   const row = r.rows[0];
+  if (action === 'project.read') { if (!(await canReadProject(c as any, actor, row))) throw new AppError('not_found', 'Project not found', 404); return row; }
   try { authorize(actor, action, { tenantId: row.tenant_id, ownerUserId: row.owner_user_id }); }
   catch { throw new AppError('not_found', 'Project not found', 404); }
+  if (row.org_id && !(await canReadProject(c as any, actor, row))) throw new AppError('not_found', 'Project not found', 404); // a removed member can no longer edit organisation projects
   return row;
 }
 export async function getProject(actor: Actor, id: string) { return loadOwned(getPool(), actor, id, 'project.read'); }

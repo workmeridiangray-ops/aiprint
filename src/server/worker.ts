@@ -9,6 +9,7 @@ import { audit } from './identity';
 import { validateSettings } from './projects';
 import { require as authorize } from './policy';
 import type { Actor } from './auth';
+import { canReadProject } from './org';
 
 const MAX_ATTEMPTS = 3;
 export const RETENTION_DAYS = 90;
@@ -116,11 +117,12 @@ export async function workOnce(workerId: string) {
 
 /** Protected download: owner only, within retention. Re-download is free: no ledger writes happen here. */
 export async function readOutput(actor: Actor, outputId: string) {
-  const r = await getPool().query('select o.*, f.storage_key from outputs o join stored_files f on f.id=o.file_id where o.id=$1', [outputId]);
+  const r = await getPool().query(`select o.*, f.storage_key, p.tenant_id as p_tenant, p.owner_user_id as p_owner, p.org_id, p.visibility from outputs o join stored_files f on f.id=o.file_id
+    join jobs j on j.id=o.job_id join reservations rs on rs.id=j.reservation_id join quotes q on q.id=rs.quote_id join projects p on p.id=q.project_id where o.id=$1`, [outputId]);
   const o = r.rows[0];
   const nf = () => new AppError('not_found', 'File not found', 404);
   if (!o) throw nf();
-  try { authorize(actor, 'file.read', { tenantId: o.tenant_id, ownerUserId: o.owner_user_id }); } catch { throw nf(); }
+  if (!(await canReadProject(getPool(), actor, { tenant_id: o.p_tenant, owner_user_id: o.p_owner, org_id: o.org_id, visibility: o.visibility }))) throw nf();
   if (new Date(o.expires_at) <= new Date()) throw new AppError('expired', 'This file has passed its retention period', 410);
   const buf = await readFile(path.join(dir(), o.storage_key));
   const { createHash } = await import('node:crypto');
@@ -128,7 +130,8 @@ export async function readOutput(actor: Actor, outputId: string) {
   return { buf, format: o.format as string };
 }
 export async function jobStatus(actor: Actor, jobId: string) {
-  const r = await getPool().query(`select j.status, j.last_error, o.id as output_id from jobs j join reservations rs on rs.id=j.reservation_id join quotes q on q.id=rs.quote_id join projects p on p.id=q.project_id left join outputs o on o.job_id=j.id where j.id=$1 and j.tenant_id=$2 and p.owner_user_id=$3`, [jobId, actor.tenantId, actor.userId]);
-  if (!r.rowCount) throw new AppError('not_found', 'Job not found', 404);
-  return { status: r.rows[0].status as string, outputId: r.rows[0].output_id as string | null, message: r.rows[0].status === 'failed' ? 'Processing failed. You have not been charged.' : null };
+  const r = await getPool().query(`select j.status, j.last_error, o.id as output_id, p.tenant_id, p.owner_user_id, p.org_id, p.visibility from jobs j join reservations rs on rs.id=j.reservation_id join quotes q on q.id=rs.quote_id join projects p on p.id=q.project_id left join outputs o on o.job_id=j.id where j.id=$1`, [jobId]);
+  const row = r.rows[0];
+  if (!row || !(await canReadProject(getPool(), actor, row))) throw new AppError('not_found', 'Job not found', 404);
+  return { status: row.status as string, outputId: row.output_id as string | null, message: row.status === 'failed' ? 'Processing failed. You have not been charged.' : null };
 }

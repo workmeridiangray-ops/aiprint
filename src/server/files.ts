@@ -6,6 +6,7 @@ import path from 'node:path';
 import { getPool, AppError } from './db';
 import type { Actor } from './auth';
 import { require as authorize } from './policy';
+import { canReadProject } from './org';
 
 export const LIMITS = { maxBytes: 25 * 1024 * 1024, maxPixels: 40_000_000, formats: ['jpeg', 'png'] as const };
 
@@ -54,7 +55,11 @@ export async function readOriginal(actor: Actor, fileId: string) {
   // Same error for missing and forbidden so ids cannot be probed.
   if (!r.rowCount || r.rows[0].quarantined) throw new AppError('not_found', 'File not found', 404);
   const row = r.rows[0];
-  try { authorize(actor, 'file.read', { tenantId: row.tenant_id, ownerUserId: row.owner_user_id }); }
-  catch { throw new AppError('not_found', 'File not found', 404); }
+  const refs = (await getPool().query('select tenant_id, owner_user_id, org_id, visibility from projects where source_file_id=$1', [fileId])).rows;
+  let ok = false;
+  try { authorize(actor, 'file.read', { tenantId: row.tenant_id, ownerUserId: row.owner_user_id }); ok = true; } catch { /* maybe shared through an organisation project */ }
+  if (ok) { for (const p of refs) if (p.org_id && !(await canReadProject(getPool(), actor, p))) { ok = false; break; } } // owner who left the organisation loses organisation files
+  if (!ok) for (const p of refs) if (p.org_id && p.visibility === 'shared' && (await canReadProject(getPool(), actor, p))) { ok = true; break; }
+  if (!ok) throw new AppError('not_found', 'File not found', 404);
   return readFile(path.join(storageDir(), row.storage_key));
 }

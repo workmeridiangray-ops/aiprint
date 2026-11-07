@@ -2,7 +2,8 @@ import { getPool, tx, AppError } from './db';
 import type { Actor } from './auth';
 import { require as authorize } from './policy';
 import { validateSettings, outputPixels } from './projects';
-import { ensureAccount, available } from './ledger';
+import { ensureAccount, ensureOrgAccount, available } from './ledger';
+import { canReadProject, monthUsage } from './org';
 import { priceFor, canProcess } from './vendor';
 
 export const QUOTE_TTL_MINUTES = 15;
@@ -12,7 +13,7 @@ export async function createQuote(actor: Actor, projectId: string) {
     const r = await c.query('select * from projects where id=$1', [projectId]);
     const p = r.rows[0];
     if (!p) throw new AppError('not_found', 'Project not found', 404);
-    try { authorize(actor, 'project.read', { tenantId: p.tenant_id, ownerUserId: p.owner_user_id }); authorize(actor, 'quote.create', { tenantId: p.tenant_id }); }
+    try { authorize(actor, 'project.save', { tenantId: p.tenant_id, ownerUserId: p.owner_user_id }); authorize(actor, 'quote.create', { tenantId: p.tenant_id }); if (p.org_id && !(await canReadProject(c, actor, p))) throw 0; }
     catch { throw new AppError('not_found', 'Project not found', 404); }
     if (!p.source_file_id) throw new AppError('no_source', 'Add an image before requesting a price');
     const settings = validateSettings(p.settings);
@@ -29,7 +30,7 @@ export async function createQuote(actor: Actor, projectId: string) {
  *  Accounts are locked in id order (no deadlock); available = settled - held is checked under lock, so concurrent requests cannot overspend. */
 export async function reserveQuote(actor: Actor, quoteId: string) {
   return tx(async c => {
-    const qr = await c.query('select q.*, p.owner_user_id, p.revision as current_revision from quotes q join projects p on p.id=q.project_id where q.id=$1 for update of q', [quoteId]);
+    const qr = await c.query('select q.*, p.owner_user_id, p.org_id, p.revision as current_revision from quotes q join projects p on p.id=q.project_id where q.id=$1 for update of q', [quoteId]);
     const q = qr.rows[0];
     if (!q) throw new AppError('not_found', 'Quote not found', 404);
     try { authorize(actor, 'quote.reserve', { tenantId: q.tenant_id }); if (q.owner_user_id !== actor.userId) throw 0; }
@@ -43,17 +44,27 @@ export async function reserveQuote(actor: Actor, quoteId: string) {
     if (q.current_revision !== q.project_revision) throw new AppError('quote_stale', 'The artwork changed after this price was given. Request a new price.', 409);
 
     if (!(await canProcess(c, q.tenant_id))) throw new AppError('subscription_inactive', 'This service cannot process new work right now', 402);
-    const custAcc = await ensureAccount(c, q.tenant_id, 'customer_service_credit', actor.userId);
+    let member: { monthly_limit_paise: string | null; role: string } | null = null;
+    if (q.org_id) { // lock the member row first (always before any account) so per-member caps are checked atomically
+      const m = await c.query("select m.monthly_limit_paise, m.role from org_members m join organisations o on o.id=m.org_id where m.org_id=$1 and m.user_id=$2 and m.revoked_at is null and o.status='active' for update of m", [q.org_id, actor.userId]);
+      if (!m.rowCount) throw new AppError('not_found', 'Quote not found', 404);
+      member = m.rows[0];
+    }
+    const custAcc = q.org_id ? await ensureOrgAccount(c, q.tenant_id, q.org_id) : await ensureAccount(c, q.tenant_id, 'customer_service_credit', actor.userId);
     const needVendor = Number(q.vendor_charge_paise) > 0;
     const vendAcc = needVendor ? await ensureAccount(c, q.tenant_id, 'vendor_processing_credit', null) : null;
     for (const id of [custAcc, vendAcc].filter(Boolean).sort() as string[]) await c.query('select 1 from ledger_accounts where id=$1 for update', [id]);
 
     const cb = await available(c, custAcc);
-    if (cb.available < Number(q.customer_amount_paise)) throw new AppError('insufficient_customer_credit', 'Not enough service credit', 402);
+    if (cb.available < Number(q.customer_amount_paise)) throw new AppError(q.org_id ? 'insufficient_organisation_credit' : 'insufficient_customer_credit', q.org_id ? 'The organisation does not have enough shared credit' : 'Not enough service credit', 402);
+    if (member && member.monthly_limit_paise !== null) {
+      const u = await monthUsage(c, q.org_id, actor.userId);
+      if (u.spent + u.reserved + Number(q.customer_amount_paise) > Number(member.monthly_limit_paise)) throw new AppError('member_limit_reached', 'This would exceed your monthly spending limit for the organisation', 402);
+    }
     if (needVendor && (await available(c, vendAcc!)).available < Number(q.vendor_charge_paise)) throw new AppError('vendor_unavailable', 'This service cannot process new work right now', 402);
 
-    const res = await c.query('insert into reservations(quote_id,customer_account_id,vendor_account_id,customer_paise,vendor_paise) values($1,$2,$3,$4,$5) returning id',
-      [quoteId, custAcc, vendAcc, q.customer_amount_paise, q.vendor_charge_paise]);
+    const res = await c.query('insert into reservations(quote_id,customer_account_id,vendor_account_id,customer_paise,vendor_paise,org_id,spender_user_id) values($1,$2,$3,$4,$5,$6,$7) returning id',
+      [quoteId, custAcc, vendAcc, q.customer_amount_paise, q.vendor_charge_paise, q.org_id ?? null, q.org_id ? actor.userId : null]);
     const job = await c.query("insert into jobs(tenant_id,reservation_id,status) values($1,$2,'queued') returning id", [q.tenant_id, res.rows[0].id]);
     return { reservationId: res.rows[0].id as string, jobId: job.rows[0].id as string, repeated: false };
   });

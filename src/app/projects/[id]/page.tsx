@@ -15,21 +15,21 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
   const [s, setS] = useState<S>(DEF); const sRef = useRef(s); sRef.current = s;
   const editStart = useRef<S | null>(null); const past = useRef<S[]>([]); const future = useRef<S[]>([]); const [, bump] = useState(0);
   const rev = useRef(1); const [sourceId, setSourceId] = useState<string | null>(null);
-  const [state, setState] = useState<Save>('saved'); const [msg, setMsg] = useState(''); const [quote, setQuote] = useState<any>(null);
+  const [state, setState] = useState<Save>('saved'); const [msg, setMsgRaw] = useState(''); const [bad, setBad] = useState(false); const setMsg = (m: string, isErr = false) => { setMsgRaw(m); setBad(isErr && !!m); }; const [quote, setQuote] = useState<any>(null);
   const [loading, setLoading] = useState(true); const timer = useRef<any>(null); const dirty = useRef(false);
-  const [zoom, setZoom] = useState(1); const [imgInfo, setImgInfo] = useState<{ w: number; h: number; profile?: string } | null>(null);
+  const [meta, setMeta] = useState<{ orgId: string | null; visibility: string; mine: boolean }>({ orgId: null, visibility: 'private', mine: true }); const [zoom, setZoom] = useState(1); const [imgInfo, setImgInfo] = useState<{ w: number; h: number; profile?: string } | null>(null);
   const img = useRef<HTMLImageElement | null>(null); const canvas = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => { (async () => {
     const r = await fetch(`/api/projects/${id}`);
     if (r.status === 401) { location.href = '/login'; return; }
-    if (!r.ok) { setMsg((await r.json()).message); setLoading(false); return; }
-    const p = await r.json(); rev.current = p.revision; setSourceId(p.sourceFileId); if (p.settings?.widthMm) setS({ ...DEF, ...p.settings }); setLoading(false);
-  })().catch(() => { setMsg('Could not load. Check your connection and reload.'); setLoading(false); }); }, [id]);
+    if (!r.ok) { setMsg((await r.json()).message, true); setLoading(false); return; }
+    const p = await r.json(); rev.current = p.revision; setSourceId(p.sourceFileId); setMeta({ orgId: p.orgId, visibility: p.visibility, mine: p.mine }); if (p.settings?.widthMm) setS({ ...DEF, ...p.settings }); setLoading(false);
+  })().catch(() => { setMsg('Could not load. Check your connection and reload.', true); setLoading(false); }); }, [id]);
 
   useEffect(() => { if (!sourceId) { img.current = null; setImgInfo(null); return; }
     const im = new Image(); im.onload = () => { img.current = im; setImgInfo({ w: im.naturalWidth, h: im.naturalHeight }); draw(); };
-    im.onerror = () => setMsg('The image could not be loaded for preview.'); im.src = `/api/files/${sourceId}`; }, [sourceId]); // eslint-disable-line
+    im.onerror = () => setMsg('The image could not be loaded for preview.', true); im.src = `/api/files/${sourceId}`; }, [sourceId]); // eslint-disable-line
 
   useEffect(() => { const h = (e: BeforeUnloadEvent) => { if (dirty.current) e.preventDefault(); }; addEventListener('beforeunload', h); return () => removeEventListener('beforeunload', h); }, []);
   useEffect(() => { const on = () => dirty.current && scheduleSave(sRef.current, 0); const off = () => setState(st => (st === 'saved' ? st : 'offline')); addEventListener('online', on); addEventListener('offline', off); return () => { removeEventListener('online', on); removeEventListener('offline', off); }; }); // eslint-disable-line
@@ -86,19 +86,19 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
     setMsg(''); const fd = new FormData(); fd.append('file', f);
     try {
       const r = await fetch('/api/files', { method: 'POST', body: fd }); const b = await r.json();
-      if (!r.ok) { setMsg(b.message); return; }
+      if (!r.ok) { setMsg(b.message, true); return; }
       setSourceId(b.fileId); setMsg(`${b.width}×${b.height}px ${b.format.toUpperCase()}. Colour profile: ${b.colourProfile === 'embedded' ? 'embedded' : 'none embedded, treated as sRGB'}.`); setQuote(null);
       past.current.push(sRef.current); await save(sRef.current, b.fileId);
-    } catch { setMsg('Upload failed. Check your connection and try again.'); }
+    } catch { setMsg('Upload failed. Check your connection and try again.', true); }
   }
   async function getQuote() {
-    if (state !== 'saved') { setMsg('Wait for the project to finish saving.'); return; }
+    if (state !== 'saved') { setMsg('Wait for the project to finish saving.', true); return; }
     const r = await fetch(`/api/projects/${id}/quote`, { method: 'POST' }); const b = await r.json();
-    if (r.ok) setQuote(b); else setMsg(b.message);
+    if (r.ok) setQuote(b); else setMsg(b.message, true);
   }
   async function reserve() {
     const r = await fetch(`/api/quotes/${quote.quoteId}/reserve`, { method: 'POST' }); const b = await r.json();
-    if (r.ok) location.href = `/jobs/${b.jobId}`; else setMsg(b.message);
+    if (r.ok) location.href = `/jobs/${b.jobId}`; else setMsg(b.message, true);
   }
   const num = (k: keyof S, label: string, step = 1, min?: number, max?: number) => <div><label htmlFor={k}>{label}</label>
     <input id={k} type="number" step={step} min={min} max={max} value={s[k] as number} onChange={e => { const v = Number(e.target.value); if (!Number.isNaN(v)) set({ [k]: min !== undefined && max !== undefined ? clamp(v, min, max) : v } as Partial<S>, false); }} onFocus={() => { editStart.current = sRef.current; }} onBlur={() => { const st = editStart.current; editStart.current = null; if (st && JSON.stringify(st) !== JSON.stringify(sRef.current)) { past.current.push(st); future.current = []; bump(x => x + 1); } }} /></div>;
@@ -107,7 +107,9 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
   const label = { saved: 'All changes saved', saving: 'Saving…', unsaved: 'Unsaved changes', error: 'Save failed', conflict: 'Save blocked: newer version exists', offline: 'Offline: not saved' }[state];
   return <main><h1>Prepare artwork</h1>
     <p aria-live="polite" role="status">{label}</p>
-    <p role="alert" className={state === 'saved' ? 'muted' : 'err'}>{msg}</p>
+    <p role="alert" className={state === 'saved' && !bad ? 'muted' : 'err'}>{msg}</p>
+    {meta.orgId && <div className="card">{meta.mine ? <label className="check"><input type="checkbox" checked={meta.visibility === 'shared'} onChange={async e => { const v = e.target.checked ? 'shared' : 'private'; const r = await fetch(`/api/projects/${id}/visibility`, { method: 'PATCH', headers: j, body: JSON.stringify({ visibility: v }) }); if (r.ok) setMeta(m => ({ ...m, visibility: v })); else setMsg((await r.json()).message, true); }} /> Share with everyone in the organisation (read-only)</label> : <p className="muted">Shared with you by a colleague. You can view it but not change it.</p>}</div>}
+    <fieldset disabled={!meta.mine} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
     <div className="card"><label htmlFor="file">Image (JPG or PNG, up to 25 MB / 40 MP)</label>
       <input id="file" type="file" accept="image/jpeg,image/png" onChange={e => e.target.files?.[0] && upload(e.target.files[0])} />
       {!sourceId && <p className="muted">No image yet.</p>}</div>
@@ -132,5 +134,6 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
         <button type="button" onClick={() => set({ offsetXMm: 0, offsetYMm: 0, rotationDeg: 0, scale: 1 })}>Reset position</button></div></details>
     <div className="card"><button onClick={getQuote} disabled={!sourceId || state === 'conflict'}>Get price</button>
       {quote && <p>Price ₹{(quote.customerAmountPaise / 100).toFixed(2)}, valid until {new Date(quote.expiresAt).toLocaleTimeString()}. <button onClick={reserve}>Hold funds and queue job</button></p>}</div>
+    </fieldset>
   </main>;
 }

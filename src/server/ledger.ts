@@ -30,3 +30,11 @@ export async function available(c: Q, accountId: string): Promise<{ settled: num
 }
 export async function balance(accountId: string) { return available(getPool(), accountId); }
 export { tx };
+
+export async function ensureOrgAccount(c: Q, tenantId: string, orgId: string): Promise<string> {
+  const f = await c.query("select id from ledger_accounts where org_id=$1 and kind='organisation_service_credit'", [orgId]);
+  if (f.rowCount) return f.rows[0].id;
+  const ins = await c.query("insert into ledger_accounts(tenant_id,kind,org_id) values($1,'organisation_service_credit',$2) on conflict do nothing returning id", [tenantId, orgId]);
+  if (ins.rowCount) return ins.rows[0].id;
+  return (await c.query("select id from ledger_accounts where org_id=$1 and kind='organisation_service_credit'", [orgId])).rows[0].id;
+}

@@ -45,23 +45,23 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | SC-033 | Vendor settlement statement | Not started | - | - | Not implemented |
 | SC-034 | Vendor settings and closure | Not started | - | - | Not implemented |
 | SC-035 | Customer dashboard | Not started | - | - | Not implemented |
-| SC-036 | Project list | Partial | /projects, GET/POST /api/projects | HTTP smoke; build | Own projects only; no search, archive, business sharing |
+| SC-036 | Project list | Partial | /projects (own, organisation and shared-with-you projects; new project in organisation) | HTTP smoke; browser runs | No search/archive/pagination |
 | SC-037 | Upload and setup | Partial | /projects/[id] file picker, POST /api/files | tests/security.test.ts (upload inspection) | Local-disk storage only; no malware scanning/quarantine workflow; no front/back second image; no preset list |
 | SC-038 | Inspection | Partial | Inspection message + effective-dpi warning in editor | tests/security.test.ts; tests/engine.test.ts; browser run | Untagged treated as sRGB; no profile conversion; no scan/quarantine |
 | SC-039 | Print editor | Partial | /projects/[id]: canvas preview (trim/bleed/safe guides), move/rotate/scale/fit/fill, numeric fields, arrow-key nudge, undo/redo, zoom, reset, presets; server engine + shared src/lib/geometry.ts | tests/engine.test.ts; Playwright run 2026-11-07 (tests/e2e/editor-flow.cjs) | No drag-to-move or crop handles, no back image, no alignment beyond centre, no enhancement, no CMYK/ICC; preview/export pixel parity not tested |
 | SC-040 | Version conflict | Partial | Conflict banner in editor; 409 revision_conflict returns current state | tests/projects-quotes.test.ts | No side-by-side resolve/save-as-copy flow |
 | SC-041 | Quote confirmation | Partial | Get price / Hold funds buttons; POST /api/projects/[id]/quote, /api/quotes/[id]/reserve | tests/projects-quotes.test.ts | Placeholder dev pricing, not versioned vendor/platform pricing config |
-| SC-042 | Customer credits and checkout | Blocked | Reservation against ledger only | tests/projects-quotes.test.ts | No payment/top-up: needs approved provider (not selected/credentialed). No fake success implemented |
+| SC-042 | Customer credits and checkout | Blocked | Reservation against personal or organisation credit only | tests/projects-quotes.test.ts; tests/business.test.ts | No top-up/checkout for personal, organisation or vendor credit: blocked on the payment provider. Organisation credit in dev/tests is seeded directly into the ledger |
 | SC-043 | Processing status | Partial | /jobs/[id]; GET /api/jobs/[id]; scripts/worker.ts | tests/worker.test.ts | Polling UI only; no failure-review queue UI; no cancel button |
 | SC-044 | Result preview | Partial | Download link on /jobs/[id] | tests/worker.test.ts; browser run (PDF downloaded) | No result preview image |
 | SC-045 | Downloads and versions | Partial | GET /api/outputs/[id]/download; PNG, JPG, TIFF, PDF (RGB) | tests/engine.test.ts; tests/worker.test.ts | No CMYK, no version list, no 7-day warning |
 | SC-046 | Customer transactions | Not started | - | - | Not implemented |
 | SC-047 | Profile and security | Not started | - | - | Not implemented |
 | SC-048 | Account export and closure | Not started | - | - | Not implemented |
-| SC-049 | Organisation profile | Not started | - | - | Not implemented |
-| SC-050 | Members and sharing | Not started | - | - | Not implemented |
-| SC-051 | Member spending limits | Not started | - | - | Not implemented |
-| SC-052 | Business usage report | Not started | - | - | Not implemented |
+| SC-049 | Organisation profile | Partial | /business (create); PATCH /api/orgs/[id] | tests/business.test.ts; tests/e2e/business-flow.cjs (Playwright, 2026-11-07) | Profile edit has an API but no form on the page; billing contact stored only; store context implicit (one store per organisation) |
+| SC-050 | Members and sharing | Partial | /business members table, invite, remove, make admin; /business/join; project share checkbox in editor; POST /api/orgs/[id]/invite|transfer, DELETE /api/orgs/[id]/members/[mid], PATCH /api/projects/[id]/visibility | tests/business.test.ts; tests/e2e/business-flow.cjs (Playwright, 2026-11-07) | Sharing is whole-organisation read-only (no per-person sharing); no invite resend/revoke UI; no reassignment of a removed member's organisation projects (they become inaccessible; admin sees charges only) |
+| SC-051 | Member spending limits | Partial | /business monthly limit inputs; PATCH /api/orgs/[id]/members/[mid] | tests/business.test.ts; tests/e2e/business-flow.cjs (Playwright, 2026-11-07) | Month = calendar month in IST (assumption, not in R3). Usage counts reservations created that month |
+| SC-052 | Business usage report | Partial | /business usage table; GET /api/orgs/[id]/usage[?format=csv] (admin only, audited, formula-safe) | tests/business.test.ts; tests/e2e/business-flow.cjs (Playwright, 2026-11-07) | CSV is generated synchronously, not as a queued export with permission recheck; no date/member filter controls in the UI; no pagination (5000-row cap) |
 | SC-053 | Ticket list and create | Not started | - | - | Not implemented |
 | SC-054 | Ticket detail and escalation | Not started | - | - | Not implemented |
 | SC-055 | Platform overview | Not started | - | - | Not implemented |
@@ -97,14 +97,14 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | AT-05 | Approved colour/bleed/size samples export with expected dimensions/profile; RGB PNG/JPG never falsel | Partial | Dimensions, density, bleed mirroring, format validity tested with synthetic images. Approved client samples not supplied; CMYK not offered |
 | AT-06 | Two saves against one revision cannot silently overwrite; second sees conflict and can save a new pe | Covered (slice) | Concurrent and stale saves tested. UI second-save recovery is minimal |
 | AT-07 | Changed file/settings or expired quote cannot use stale accepted price; unchanged accepted running j | Partial | Stale and expired quotes tested. Running-job price retention untested (no worker) |
-| AT-08 | Concurrent requests against one remaining balance/cap cannot overspend; available/reserved/spent rec | Partial | Customer and vendor credit concurrency tested. Member caps not built |
+| AT-08 | Concurrent requests against one remaining balance/cap cannot overspend; available/reserved/spent rec | Partial | Concurrent customer, vendor, member-cap and shared-pool reservations tested (20-way and mixed-member races); releases restore capacity; lowering a limit blocks new spend. Browser-level concurrency not tested |
 | AT-09 | Double click, duplicate callback and repeated worker delivery yield one charge and one eligible enti | Partial | Repeated worker delivery / zombie worker yields one consumption and one output: tested. Double-click and duplicate payment callbacks not built |
 | AT-10 | Worker dies after upstream success: system reconciles outcome before retry, without another paid ups | Partial | Worker death and zombie finalize tested for the local engine. Paid upstream unknown-outcome path (needs_review) is a status only, not wired |
 | AT-11 | Terminal failed job releases hold; direct payment tracks refund due/submitted/confirmed and never fa | Partial | Failed job releases hold: tested. Direct-payment refund tracking not built |
 | AT-12 | Browser closes before payment success: later verified event credits/unlocks once; wrong amount/curre | Not started | No test |
 | AT-13 | Direct unpaid raw-object access denied; paid exact-version download allowed; same-version redownload | Not started | No test |
 | AT-14 | Counter cash creates no platform-collected revenue/payable; vendor cost captured once and override l | Partial | Counter cash: no ledger entry, no payable; vendor charge captured once; override audited: tested. Reconciliation reports not built |
-| AT-15 | Business admin financial reporting does not expose unshared member artwork; shared project permissio | Not started | No test |
+| AT-15 | Business admin financial reporting does not expose unshared member artwork; shared project permissio | Partial | Admin sees charge metadata but cannot read a member's private project, file or output; sharing opens read access to members only; removed member loses access. Search/count scoping not built |
 | AT-16 | Full refund revokes future download entitlement; partial refund follows declared access policy; no d | Not started | No test |
 | AT-17 | Refund races with settlement: statement/payable reconcile and any recovery remains linked, not bank- | Not started | No test |
 | AT-18 | Prepared payout run modified after approval requires reapproval; failed/unknown transfer cannot dupl | Not started | No test |
@@ -115,7 +115,7 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | AT-23 | Supported phone flow completes upload/edit/price/pay/download; keyboard forms and numeric editor alt | Not started | No test |
 | AT-24 | Stale/expired-session/offline UI never falsely shows saved/paid; reconnect returns correct workspace | Not started | No test |
 | AT-25 | Self approval of financial adjustment/beneficiary/payout rejected; lost second factor recovered only | Not started | No test |
-| AT-26 | Search counts/suggestions/CSV obey record scope; formula-leading export values escaped; restricted b | Not started | No test |
+| AT-26 | Search counts/suggestions/CSV obey record scope; formula-leading export values escaped; restricted b | Partial | CSV formula-leading values neutralised and export is admin-scoped and audited. Search suggestions/counts and queued exports not built |
 | AT-27 | Complete clean build, deploy and recovery steps work from handover; production secrets absent from r | Not started | No test |
 | AT-28 | Public 12 page types, policies, enquiry success/failure and technical SEO controls present; no test  | Partial | 12 public pages, technical SEO (titles, descriptions, sitemap, robots), enquiry success and failure tested in a browser. Policy text and client copy review outstanding; no test/fabricated data shown |
 | AT-29 | Invite/reset token expiry and reuse denied; last tenant/business/platform admin cannot be removed wi | Partial | Token expiry/reuse and last-admin tested for vendor tenants. Business/platform admins and MFA recovery not built |
