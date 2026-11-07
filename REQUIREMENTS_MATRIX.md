@@ -71,7 +71,7 @@ Totals (refreshed in the gap pass): 75 surfaces; 54 partial, 2 blocked, 19 not s
 | SC-059 | Platform staff permissions | Not started | - | - | Not implemented |
 | SC-060 | Plans and quotas | Partial | createPlan (immutable versions), POST /api/platform/plans | tests/vendor.test.ts | No platform UI; no quotas beyond staff seats; storage/job quotas not enforced |
 | SC-061 | Global processing prices | Partial | setPlatformPricing, POST /api/platform/pricing | tests/vendor.test.ts | No UI |
-| SC-062 | Jobs and job detail | Partial | /jobs/[id] (customer job status); /admin job counts and oldest age | tests/worker.test.ts; tests/admin.test.ts | No staff job list or job detail screen, no retry or review queue UI |
+| SC-062 | Jobs and job detail | Partial | /jobs/[id] (customer job status); /admin \"Jobs needing attention\" (failed 14 days, expired-lease running jobs, oldest waiting, count of not-started cancellations); GET /api/platform/jobs (staff only, metadata only) | tests/worker.test.ts; tests/admin.test.ts | No per-job detail page, no retry action (a failed job released its funds; customer requests a new price), no filters |
 | SC-063 | Payments and reconciliation | Not started | - | - | Not implemented |
 | SC-064 | Credit ledgers | Not started | - | - | Not implemented |
 | SC-065 | Credit adjustment approval | Not started | - | - | Not implemented |
@@ -202,7 +202,7 @@ Status is the weakest honest summary of the screens each group maps to.
 | FE-07 | Component/state specification | Not started | No component spec |
 | BE-01 | Domain invariants | Partial | FKs and tenancy checks; tests/security.test.ts |
 | BE-02 | Atomicity and idempotency | Partial | Advisory locks, unique keys; tests/business.test.ts, tests/projects-quotes.test.ts |
-| BE-03 | Durable jobs | Partial | Leases, reaper, 3 attempts; no heartbeat, no exhausted-retry review queue UI |
+| BE-03 | Durable jobs | Partial | Leases, reaper, 3 attempts; worker heartbeat every 20 s while rendering (test fails without it); staff list of failed and stuck jobs. No external provider so no needs_review path in use; no retry-from-review action |
 | BE-04 | Reservation lifecycle | Partial | Quote expiry independent of held reservations; queued never-attempted jobs release their hold after HOLD_EXPIRY_MINUTES (default 30, proposed) via scheduler hold_expiry; running jobs keep holds; tests/downloads.test.ts. No age report for held-too-long running/unknown jobs |
 | BE-05 | Output integrity | Partial | Validate before publish, checksum stored; missing-file error surfaced |
 | BE-06 | Refund accounting | Not started | Blocked on provider |

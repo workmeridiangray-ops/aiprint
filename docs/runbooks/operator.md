@@ -12,6 +12,7 @@ Processes (all from the same build): `web` (next start), `worker`, `scheduler`, 
 - Scheduler task `hold_expiry` (every 5 minutes) cancels jobs that sat queued with no attempt for HOLD_EXPIRY_MINUTES (default 30) and releases their hold. If it fires often, workers are down or too slow: check the worker first.
 
 ## Daily checks (from /admin)
+- "Jobs needing attention": failed jobs (read last error; customers were not charged), running jobs with an expired lease (the worker's reaper requeues them; if they persist, no worker is running), oldest waiting job.
 - Oldest queued job age growing: worker down or stuck. Restart worker; the reaper requeues expired leases and fails a job after 3 attempts, releasing the hold.
 - Scheduler "last run" older than expected or errored: run `npm run scheduler` once manually and read the error; tasks are subscription_lifecycle, retention, account_maintenance.
 - Mailer: failed or old pending outbox rows (see support runbook for the email checks).

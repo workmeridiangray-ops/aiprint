@@ -9,12 +9,12 @@ async function call(url: string, method: string, body?: unknown) {
 }
 const POLICY_NAMES: Record<string, string> = { terms: 'Terms', privacy: 'Privacy', refund: 'Refund policy', acceptable_use: 'Acceptable use' };
 export default function Admin() {
-  const [ov, setOv] = useState<any>(null); const [enq, setEnq] = useState<any[]>([]); const [runs, setRuns] = useState<any>(null); const [filter, setFilter] = useState('');
+  const [jobs, setJobs] = useState<any>(null); const [ov, setOv] = useState<any>(null); const [enq, setEnq] = useState<any[]>([]); const [runs, setRuns] = useState<any>(null); const [filter, setFilter] = useState('');
   const [msg, setMsg] = useState(''); const [err, setErr] = useState(''); const [closing, setClosing] = useState<string | null>(null);
   async function load() {
     try {
       const [o, e, r] = await Promise.all([call('/api/platform/overview', 'GET'), call('/api/platform/enquiries' + (filter ? `?status=${filter}` : ''), 'GET'), call('/api/platform/runs', 'GET').catch(() => null)]);
-      setOv(o); setEnq(e); setRuns(r);
+      setOv(o); setEnq(e); setRuns(r); setJobs(await call('/api/platform/jobs', 'GET').catch(() => null));
     } catch (e: any) { if (e.message === 'Not permitted') setErr('This area is for platform staff.'); else if (e.message !== 'auth') setErr(e.message); }
   }
   useEffect(() => { load(); }, [filter]);
@@ -61,6 +61,13 @@ export default function Admin() {
       <section className="card"><h2>Direct store</h2>
         {ov.directStore ? <p>{ov.directStore.name}: <a href={`/store/${ov.directStore.slug}`}>/store/{ov.directStore.slug}</a></p> : owner ? <form onSubmit={form(f => call('/api/platform/direct-store', 'POST', { name: f.get('name'), slug: f.get('slug') }), 'Direct store created. Set its prices from the store dashboard before customers can get quotes.')}>
           <div className="grid"><div><label htmlFor="dn">Store name</label><input id="dn" name="name" required /></div><div><label htmlFor="ds">Web address</label><input id="ds" name="slug" required pattern="[a-z0-9][a-z0-9\-]{1,38}[a-z0-9]" /></div></div><button>Create direct store</button></form> : <p className="muted">No direct store yet.</p>}</section>
+
+      <section className="card"><h2>Jobs needing attention</h2>
+        {!jobs ? <p className="muted">Job list unavailable.</p> : <>
+          <p className={jobs.stuck.length ? 'err' : 'muted'}>Running with an expired lease (will be requeued by the worker's reaper): {jobs.stuck.length}. Failed in the last 14 days: {jobs.failed.length}. Cancelled for not starting in time (all time): {jobs.holdsExpired}.</p>
+          {jobs.waiting.length > 0 && <p className="muted">Oldest waiting: {Math.round(jobs.waiting[0].age_seconds / 60)} min ({jobs.waiting[0].tenant}).</p>}
+          {jobs.failed.length > 0 && <table><thead><tr><th>Job</th><th>Store</th><th>Attempts</th><th>Last error</th><th>Finished</th></tr></thead><tbody>{jobs.failed.map((f: any) => <tr key={f.id}><td>{f.id.slice(0, 8)}</td><td>{f.tenant}</td><td>{f.attempts}</td><td>{f.last_error}</td><td>{new Date(f.finished_at).toLocaleString()}</td></tr>)}</tbody></table>}
+          <p className="muted">Failed jobs released their funds; customers were not charged and can request a new price. No artwork or customer details are shown here.</p></>}</section>
 
       <section className="card"><h2>Scheduled work</h2>
         {!runs || runs.runs.length === 0 ? <p className="muted">The scheduler has not recorded a run yet. If it should be running, check it.</p> : <table><thead><tr><th>Task</th><th>Last run</th><th>Result</th></tr></thead><tbody>{runs.runs.map((r: any) => <tr key={r.task}><td>{r.task.replace('_', ' ')}</td><td>{new Date(r.started_at).toLocaleString()}</td><td className={r.ok === false ? 'err' : ''}>{r.ok === null ? 'running or interrupted' : r.ok ? JSON.stringify(r.summary) : `Failed: ${r.error}`}</td></tr>)}</tbody></table>}

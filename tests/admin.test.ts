@@ -1,9 +1,14 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { setupDb, mkTenant, mkBareTenant, mkActor, closePool } from './helpers';
-import { adminOverview } from '../src/server/admin';
+import { adminOverview, jobProblems } from '../src/server/admin';
 import { setPlatformPricing, createPlan } from '../src/server/vendor';
 import { publishPolicy, createDirectStore, submitEnquiry } from '../src/server/public';
 import { getPool } from '../src/server/db';
+import sharp from 'sharp';
+import { saveOriginal } from '../src/server/files';
+import { createProject, saveProject } from '../src/server/projects';
+import { createQuote, reserveQuote } from '../src/server/quotes';
+import { fund } from './helpers';
 
 let PT: string, VT: string;
 beforeAll(async () => { await setupDb(); PT = await mkTenant('Platform', 'platform'); VT = await mkTenant('Vendor One'); });
@@ -44,5 +49,30 @@ describe('system health', () => {
     expect(h.jobs).toMatchObject({ queued: expect.any(Number), running: expect.any(Number) }); expect(h.storage).toMatchObject({ configured: true, driver: 'local' }); expect(h.redis).toEqual({ configured: false });
     const prev = process.env.APP_ENV; process.env.APP_ENV = 'production'; const bad = await systemHealth(await mkActor(PT, 'sh-staff2@x.test', 'platform_support')); process.env.APP_ENV = prev;
     expect(bad.storage.configured).toBe(false); expect(JSON.stringify(h)).not.toMatch(/S3RVER|secret/i);
+  });
+});
+
+describe('job problems list', () => {
+  it('is staff-only, shows failed, stuck and waiting jobs by store, and leaks no artwork or contact details', async () => {
+    const pool = getPool(); const sup = await mkActor(PT, 'jp-sup@x.test', 'platform_support');
+    for (const role of ['customer', 'vendor_admin'] as const) await expect(jobProblems(await mkActor(VT, `jp-${role}@x.test`, role))).rejects.toMatchObject({ status: 403 });
+    const mk = async (status: string, extra = '') => {
+      const u = await mkActor(VT, `jp-${status}-${Math.random()}@x.test`); const proj = await createProject(u, 'Secret wedding photo');
+      const f = await saveOriginal(u, await sharp({ create: { width: 400, height: 300, channels: 3, background: '#2a6' } }).png().toBuffer());
+      await saveProject(u, proj.id, 1, { sourceFileId: f.fileId, settings: { widthMm: 50, heightMm: 30, bleedMm: 2, dpi: 300, fit: 'fill' } });
+      await fund(VT, u.userId, 100000, 'jc-' + u.userId); await fund(VT, null, 1_000_000, 'jv-' + u.userId);
+      const r = await reserveQuote(u, (await createQuote(u, proj.id)).quoteId);
+      await pool.query(`update jobs set status=$2${extra ? ', ' + extra : ''} where id=$1`, [r.jobId, status]);
+      return r.jobId as string;
+    };
+    const failedId = await mk('failed', "last_error='render exploded'"); await pool.query("update jobs set finished_at=now(), attempts=3 where id=$1", [failedId]);
+    const stuckId = await mk('running'); await pool.query("update jobs set lease_owner='w9', lease_expires_at=now()-interval '5 minutes', attempts=1 where id=$1", [stuckId]);
+    await mk('queued');
+    const r = await jobProblems(sup);
+    expect(r.failed.map((x: any) => x.id)).toContain(failedId); expect(r.failed.find((x: any) => x.id === failedId).last_error).toBe('render exploded');
+    expect(r.stuck.map((x: any) => x.id)).toContain(stuckId);
+    expect(r.waiting.length).toBeGreaterThan(0);
+    expect(r.failed.find((x: any) => x.id === failedId).tenant).toBe('Vendor One');
+    expect(JSON.stringify(r)).not.toMatch(/Secret wedding|@x\.test/);
   });
 });

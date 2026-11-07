@@ -64,6 +64,7 @@ the policy check (role and tenant) happens inside each handler through src/serve
 | API | `/api/platform/enquiries/[id]` | PATCH | session + membership |
 | API | `/api/platform/enquiries` | GET | session + membership |
 | API | `/api/platform/holds` | POST, DELETE | session + membership |
+| API | `/api/platform/jobs` | GET | session + membership |
 | API | `/api/platform/overview` | GET | session + membership |
 | API | `/api/platform/plans` | POST | session + membership |
 | API | `/api/platform/policies` | POST | session + membership |

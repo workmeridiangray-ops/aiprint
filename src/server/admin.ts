@@ -42,3 +42,17 @@ export async function systemHealth(actor: Actor) {
   try { st = { configured: true, driver: storage().kind }; } catch (e: any) { st = { configured: false, problem: e.message }; }
   return { jobs: { queued: j.queued as number, running: j.running as number, oldestQueuedMinutes: j.oldest_minutes as number }, redis: await queueHealth(), storage: st };
 }
+
+/** Staff view of jobs needing attention (BE-03 / SC-062). Metadata only: no artwork, project names, balances or customer contact details. */
+export async function jobProblems(actor: Actor) {
+  if (!STAFF.includes(actor.role)) throw new AppError('denied', 'Not permitted', 403);
+  const q = (sql: string) => getPool().query(sql).then(r => r.rows);
+  const failed = await q(`select j.id, t.name as tenant, j.attempts, j.last_error, j.finished_at from jobs j join tenants t on t.id=j.tenant_id
+    where j.status='failed' and j.finished_at > now() - interval '14 days' order by j.finished_at desc limit 50`);
+  const stuck = await q(`select j.id, t.name as tenant, j.attempts, j.lease_owner, j.lease_expires_at from jobs j join tenants t on t.id=j.tenant_id
+    where j.status='running' and j.lease_expires_at < now() order by j.lease_expires_at limit 50`);
+  const waiting = await q(`select j.id, t.name as tenant, j.created_at, extract(epoch from now()-j.created_at)::int as age_seconds from jobs j join tenants t on t.id=j.tenant_id
+    where j.status='queued' order by j.created_at limit 20`);
+  const expired = (await q(`select count(*)::int n from jobs where status='cancelled' and last_error like 'Not started in time%'`))[0].n as number;
+  return { failed, stuck, waiting, holdsExpired: expired };
+}

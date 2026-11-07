@@ -122,3 +122,19 @@ describe('leases, concurrency, recovery', () => {
     expect((await balance(x.ca)).held).toBe(0);
   });
 });
+
+describe('heartbeat keeps a long render from being reaped', () => {
+  it('a job running longer than its lease is not requeued while the heartbeat runs', async () => {
+    const { claimJob, runJob, reapExpired } = await import('../src/server/worker');
+    const { u } = await (async () => { const u = await mkActor(T, 'hb@x.test'); return { u }; })();
+    const p = await createProject(u, 'hb'); const f = await saveOriginal(u, await png());
+    await saveProject(u, p.id, 1, { sourceFileId: f.fileId, settings: S });
+    await fund(T, u.userId, 100000, 'hb-c'); await fund(T, null, 1_000_000, 'hb-v');
+    const q = await createQuote(u, p.id); await reserveQuote(u, q.quoteId);
+    const c = (await claimJob('hb-w', 1))!;
+    let reaped: { requeued: number; failed: number } | undefined;
+    const ok = await runJob(c.jobId, 'hb-w', c.attempt, { heartbeatMs: 200, beforeFinalize: async () => { await new Promise(r => setTimeout(r, 1800)); reaped = await reapExpired(); } });
+    expect(reaped).toEqual({ requeued: 0, failed: 0 });
+    expect(ok).toBeTruthy();
+  });
+});

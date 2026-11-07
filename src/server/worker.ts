@@ -62,8 +62,10 @@ async function finalizeFailure(jobId: string, workerId: string, attempt: number,
   });
 }
 
-export async function runJob(jobId: string, workerId: string, attempt: number, hooks: { beforeFinalize?: () => Promise<void> } = {}) {
+export async function runJob(jobId: string, workerId: string, attempt: number, hooks: { beforeFinalize?: () => Promise<void>; heartbeatMs?: number } = {}) {
   const p = getPool();
+  // Keep the lease alive while rendering. If the lease is lost the finalise step is refused anyway (lease-gated), so this only avoids wasted duplicate work.
+  const beat = setInterval(() => { heartbeat(jobId, workerId).catch(() => {}); }, hooks.heartbeatMs ?? 20_000); beat.unref?.();
   try {
     const r = await p.query(`select q.settings_snapshot, q.source_file_id, f.storage_key, f.tenant_id, f.owner_user_id, pr.owner_user_id as owner
       from jobs j join reservations rs on rs.id=j.reservation_id join quotes q on q.id=rs.quote_id join stored_files f on f.id=q.source_file_id join projects pr on pr.id=q.project_id where j.id=$1`, [jobId]);
@@ -85,7 +87,7 @@ export async function runJob(jobId: string, workerId: string, attempt: number, h
     if (e instanceof AppError && e.code === 'lease_lost') return false;
     await finalizeFailure(jobId, workerId, attempt, e?.message ?? String(e));
     return false;
-  }
+  } finally { clearInterval(beat); }
 }
 
 /** Jobs whose lease expired: the local engine is deterministic and has no external side effect, so requeue (bounded).
