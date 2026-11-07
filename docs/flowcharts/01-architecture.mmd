@@ -1,0 +1,46 @@
+%% 1. System architecture, role boundaries and tenant isolation
+flowchart LR
+  subgraph Clients
+    CU["Customer / business member"]
+    VS["Vendor admin, finance, counter staff"]
+    PS["Platform owner / support"]
+    PUB["Public visitor"]
+  end
+  subgraph App["Next.js web app (one deployable)"]
+    PG["Pages: public site, editor, library, support, admin"]
+    API["API handlers"]
+    GUARD["1 Origin check on writes<br/>2 Session lookup<br/>3 Tenant from unrevoked membership<br/>4 Policy: deny by default<br/>5 Not found, never forbidden, for other tenants"]
+  end
+  subgraph Mods["Server modules"]
+    M1["projects, quotes, ledger"]
+    M2["vendor, plans, counter"]
+    M3["org, retention, support, account"]
+    M4["identity, MFA, audit"]
+  end
+  DB[("PostgreSQL<br/>system of record: ledger, jobs, audit")]:::store
+  OBJ[("Object storage<br/>S3-compatible or local dev")]:::store
+  RED[("Redis<br/>wake-up signals only")]:::store
+  W["Worker<br/>leases jobs, renders, validates"]
+  SCH["Scheduler<br/>reminders, retention, closure purge"]
+  MAIL["Mailer<br/>SMTP or dev file"]
+  PAY["Payment provider<br/>NOT CHOSEN"]:::nb
+  CU --> PG
+  VS --> PG
+  PS --> PG
+  PUB --> PG
+  PG --> API --> GUARD --> Mods
+  Mods --> DB
+  Mods --> OBJ
+  Mods -. "after commit, best effort" .-> RED
+  RED -. wake .-> W
+  W --> DB
+  W --> OBJ
+  SCH --> DB
+  SCH --> OBJ
+  MAIL --> DB
+  Mods -. "blocked until provider chosen" .-> PAY
+classDef built fill:#e3f1f1,stroke:#0f5f63,color:#14202b
+classDef nb fill:#f1f1f1,stroke:#8a8a8a,stroke-dasharray:5 3,color:#555
+classDef fail fill:#fdeaea,stroke:#b3261e,color:#14202b
+classDef store fill:#fff7e0,stroke:#a67c00,color:#14202b
+class PG,API,GUARD,M1,M2,M3,M4,W,SCH,MAIL built

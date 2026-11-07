@@ -1,0 +1,26 @@
+%% 2. Vendor onboarding, subscription payment, activation, grace and expiry
+flowchart TD
+  A["Vendor signs up<br/>tenant pending, subscription pending"] --> B["Verify email link"]
+  B -->|"link expired or reused"| BX["Request a new link"]:::fail
+  B --> C["Choose plan"]
+  C --> P{"Verified payment from provider?"}
+  P -->|"provider not chosen yet"| PX["Cannot activate: nothing can mark a store paid"]:::nb
+  P -->|"yes"| D["activateSubscription, internal only<br/>30 day period, plan version frozen"]
+  D --> E["Tenant active, store portal live"]
+  E --> F{"Period end approaching"}
+  F -->|"7 days"| G1["Reminder to vendor admins, once per period"]
+  F -->|"1 day"| G2["Reminder, once per period"]
+  G1 --> H{"Renewed with verified payment?"}
+  G2 --> H
+  H -->|"yes"| D
+  H -->|"no, period ends"| I["Grace 7 days: existing work continues"]
+  I --> J{"Renewed in grace?"}
+  J -->|"yes"| D
+  J -->|"no"| K["Expired: new work refused, history kept"]
+  K --> L["Paid files still follow their own 90 day retention"]
+  M["Plan change requested"] --> N["Applies at next renewal, never mid-period"]
+  N --> D
+  classDef built fill:#e3f1f1,stroke:#0f5f63,color:#14202b
+  classDef nb fill:#f1f1f1,stroke:#8a8a8a,stroke-dasharray:5 3,color:#555
+  classDef fail fill:#fdeaea,stroke:#b3261e,color:#14202b
+  class A,B,C,D,E,G1,G2,I,K,L,N built

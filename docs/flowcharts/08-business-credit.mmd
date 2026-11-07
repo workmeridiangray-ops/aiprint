@@ -1,0 +1,19 @@
+%% 8. Business shared credit, member limits, concurrent reservations
+flowchart TD
+  A["Member authorises a job for an organisation"] --> B["Lock member row first, then organisation account"]
+  B --> C{"Member active?"}
+  C -->|"removed or suspended"| X1["Refused"]:::fail
+  C --> D{"Monthly cap set for this member?"}
+  D -->|"yes"| E{"Spent this IST month plus this job within cap?"}
+  E -->|"no"| X2["Refused: member limit reached"]:::fail
+  D -->|"no cap"| F
+  E -->|"yes"| F{"Organisation available credit enough?<br/>balance minus held"}
+  F -->|"no"| X3["Refused: insufficient shared credit"]:::fail
+  F -->|"yes"| G["Hold taken, job queued"]
+  G --> H["Two members at once: serialised by the lock<br/>second sees the first hold, so no overspend"]
+  I["Org admin tops up credit"] --> J["Payment-backed top-up: NOT BUILT, waits for provider"]:::nb
+  K["Org admin changes caps or members"] --> L["Audited, applies to new jobs only"]
+  classDef built fill:#e3f1f1,stroke:#0f5f63,color:#14202b
+classDef nb fill:#f1f1f1,stroke:#8a8a8a,stroke-dasharray:5 3,color:#555
+classDef fail fill:#fdeaea,stroke:#b3261e,color:#14202b
+  class A,B,C,D,E,F,G,H,K,L built

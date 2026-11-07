@@ -1,0 +1,20 @@
+%% 6. Processing attempts, provider uncertainty, failure release, output validation
+flowchart TD
+  Q["Job queued"] --> CL["Worker claims with a lease<br/>SKIP LOCKED, attempt n"]
+  CL --> RN["Render from the quote snapshot"]
+  RN -->|"render error"| F1{"Attempts used up? limit 3"}
+  RN --> VA{"Output validation<br/>dimensions, DPI, format, checksum"}
+  VA -->|"mismatch"| F1
+  VA -->|"ok"| FIN["Finalise only if the lease is still ours<br/>store output, settle reservation, ledger entry"]
+  F1 -->|"no"| RQ["Back to queued"]
+  RQ --> Q
+  F1 -->|"yes"| FL["Job failed: hold released in full<br/>customer and vendor charged nothing"]:::fail
+  CL -. "worker dies" .-> LE["Lease expires"]
+  LE --> RP["Reaper requeues or fails after 3 attempts"]
+  RP --> Q
+  FIN --> DONE["Output ready, 90 day retention starts"]
+  PU["External provider returns an unknown result: NOT BUILT<br/>no external provider in this scope"]:::nb
+  classDef built fill:#e3f1f1,stroke:#0f5f63,color:#14202b
+classDef nb fill:#f1f1f1,stroke:#8a8a8a,stroke-dasharray:5 3,color:#555
+classDef fail fill:#fdeaea,stroke:#b3261e,color:#14202b
+  class Q,CL,RN,VA,FIN,F1,RQ,LE,RP,DONE built

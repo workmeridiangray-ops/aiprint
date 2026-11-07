@@ -1,0 +1,17 @@
+%% 13. Support escalation, exceptional access, incident reopening
+flowchart TD
+  A["Ticket opened"] --> B["Assigned to staff"]
+  B --> C["Public replies and internal notes"]
+  C --> D{"Needs platform owner?"}
+  D -->|"yes"| E["Escalate: reason and named platform owner required"]
+  D -->|"no"| F["Resolve with evidence"]
+  E --> F
+  F --> G{"Customer replies within 14 days, max 3 reopens"}
+  G -->|"yes"| C
+  G -->|"no for 7 days"| H["Auto-closed"]
+  X["Exceptional access to customer artwork: NOT BUILT<br/>staff roles have no file access today"]:::nb
+  I["Incident reopening and post-incident review: NOT BUILT, runbook only"]:::nb
+  classDef built fill:#e3f1f1,stroke:#0f5f63,color:#14202b
+classDef nb fill:#f1f1f1,stroke:#8a8a8a,stroke-dasharray:5 3,color:#555
+classDef fail fill:#fdeaea,stroke:#b3261e,color:#14202b
+  class A,B,C,D,E,F,G,H built

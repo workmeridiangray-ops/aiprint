@@ -1,0 +1,12 @@
+%% 10. Refunds and corrections. NOT BUILT except ledger reversal rules
+flowchart TD
+  A["Customer asks for a refund"] --> B["Support ticket, payment type"]
+  B --> C{"Job or money unsettled?"}
+  C -->|"yes"| X["Ticket blocked until settled"]
+  C -->|"no"| D["Finance reviews with evidence"]
+  D --> E["Refund to provider: NOT BUILT"]:::nb
+  D --> F["Ledger correction: append reversing entry<br/>never edit or delete"]:::nb
+  F --> G["Audit record with reason and approver"]
+  classDef built fill:#e3f1f1,stroke:#0f5f63,color:#14202b
+  classDef nb fill:#f1f1f1,stroke:#8a8a8a,stroke-dasharray:5 3,color:#555
+  class A,B,C,X,G built

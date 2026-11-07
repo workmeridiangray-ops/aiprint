@@ -1,0 +1,32 @@
+%% 5. Quote expiry, customer and vendor reservations, durable job dispatch
+flowchart TD
+  A["Customer asks for a price"] --> B["Quote saved: settings snapshot, source file,<br/>pricing version, expires in 15 minutes"]
+  B --> C["Customer authorises"]
+  C --> D{"Quote still valid?"}
+  D -->|"expired"| X1["Refused: ask for a new price"]:::fail
+  D -->|"project revision changed"| X2["Refused: stale, ask for a new price"]:::fail
+  D -->|"valid"| TX["One database transaction"]
+  subgraph TX1["Inside the transaction"]
+    T1["Lock accounts in a fixed order, member row first for organisations"]
+    T2{"Customer available credit enough?"}
+    T3{"Vendor processing credit enough? vendors only"}
+    T4{"Store can process? active or grace"}
+    T5{"Member monthly limit respected?"}
+    T6["Insert reservation held + job queued"]
+  end
+  TX --> T1 --> T2
+  T2 -->|"no"| X3["Refused: insufficient credit"]:::fail
+  T2 --> T3
+  T3 -->|"no"| X4["Refused: service unavailable"]:::fail
+  T3 --> T4 --> T5
+  T5 -->|"over limit"| X5["Refused: limit reached"]:::fail
+  T5 --> T6
+  T6 --> CM["Commit"]
+  CM --> N["Nudge worker through Redis, best effort"]
+  CM --> RP["Same request repeated: returns the same reservation, no second hold"]
+  Y["Cancel"] --> Z{"Job still queued?"}
+  Z -->|"yes"| Z1["Cancelled, hold released"]
+  Z -->|"running"| Z2["Cancellation requested, settled against the real outcome"]
+  classDef built fill:#e3f1f1,stroke:#0f5f63,color:#14202b
+  classDef fail fill:#fdeaea,stroke:#b3261e,color:#14202b
+  class A,B,C,D,TX,T1,T2,T3,T4,T5,T6,CM,N,RP,Y,Z,Z1,Z2 built

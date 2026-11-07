@@ -1,0 +1,14 @@
+%% 9. Payment events, duplicates, late success, reconciliation. NOT BUILT: provider not chosen
+flowchart TD
+  A["Customer starts a top-up"] --> B["Create payment order with provider"]:::nb
+  B --> C["Signed webhook or verified status check"]:::nb
+  C --> D{"Signature valid?"}:::nb
+  D -->|"no"| X["Reject and log"]:::nb
+  D -->|"yes"| E{"Event id seen before?"}:::nb
+  E -->|"yes"| Y["Ignore duplicate, same result"]:::nb
+  E -->|"no"| F["Credit ledger entry with idempotency key"]:::nb
+  G["Late success after timeout"] --> F
+  H["Daily reconciliation against provider report"]:::nb --> I["Mismatches raised to finance queue"]:::nb
+  K["What exists today: ledger with idempotency keys, internal credit functions,<br/>production refuses to fake a payment"]:::built
+  classDef built fill:#e3f1f1,stroke:#0f5f63,color:#14202b
+  classDef nb fill:#f1f1f1,stroke:#8a8a8a,stroke-dasharray:5 3,color:#555

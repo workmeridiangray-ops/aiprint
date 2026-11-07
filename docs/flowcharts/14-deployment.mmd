@@ -1,0 +1,16 @@
+%% 14. Deployment, pilot, acceptance, handover
+flowchart TD
+  A["Provide external inputs<br/>hosting, SMTP, S3, domain, policy text"] --> B["Deploy staging: migrate, web, worker, scheduler, mailer"]
+  B --> C["Health checks and storage probe"]
+  C --> D["Acceptance run: tests plus output acceptance record"]
+  D --> E{"Client signs acceptance?"}
+  E -->|"no"| F["Fix and rerun"]
+  F --> D
+  E -->|"yes"| G["Pilot with a small vendor group"]
+  G --> H["Production cutover once payment provider is live"]:::nb
+  H --> I["Handover: runbooks, secrets, contacts"]
+  J["Rollback: redeploy previous build, migrations are forward only"]
+  classDef built fill:#e3f1f1,stroke:#0f5f63,color:#14202b
+classDef nb fill:#f1f1f1,stroke:#8a8a8a,stroke-dasharray:5 3,color:#555
+classDef fail fill:#fdeaea,stroke:#b3261e,color:#14202b
+  class B,C,D,E,F,G,I,J built

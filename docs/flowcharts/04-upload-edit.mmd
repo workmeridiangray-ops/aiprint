@@ -1,0 +1,22 @@
+%% 4. Upload, scanning, inspection, editor saving and revision conflict
+flowchart TD
+  U["User picks an image"] --> L{"Size at most 25 MB and not empty?"}
+  L -->|"no"| E1["Refused with a clear message"]:::fail
+  L -->|"yes"| I["Inspect bytes, never trust name or MIME<br/>bounded decode, 40 megapixel limit"]
+  I -->|"not JPG or PNG, unreadable, truncated"| E2["Refused"]:::fail
+  I --> SC["Malware scan: NOT BUILT"]:::nb
+  SC --> ST["Store original privately<br/>checksum recorded, tenant namespace"]
+  ST --> PR["Project created or updated, revision n"]
+  PR --> ED["Editor: crop, rotate, scale, offsets, format, bleed"]
+  ED --> V{"Settings valid?<br/>max 500 mm, 80 MP including bleed"}
+  V -->|"no"| E3["Warning or refusal shown"]:::fail
+  V -->|"yes"| SV["Save with expected revision"]
+  SV --> CK{"Stored revision equals expected?"}
+  CK -->|"yes"| OK["Revision n+1 saved"]
+  CK -->|"no, another tab or device saved"| CF["Conflict: server returns current revision<br/>user reloads, nothing is overwritten"]:::fail
+  CF --> ED
+  OK --> ED
+  classDef built fill:#e3f1f1,stroke:#0f5f63,color:#14202b
+  classDef nb fill:#f1f1f1,stroke:#8a8a8a,stroke-dasharray:5 3,color:#555
+  classDef fail fill:#fdeaea,stroke:#b3261e,color:#14202b
+  class U,L,I,ST,PR,ED,V,SV,CK,OK built

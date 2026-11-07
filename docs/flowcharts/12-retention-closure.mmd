@@ -1,0 +1,20 @@
+%% 12. Retention, closure, quota and combined restore
+flowchart TD
+  A["Output created"] --> B["Day 83: warning email, sent once"]
+  B --> C["Day 90: purge live file<br/>metadata and ledger kept"]
+  C --> H{"Hold on it?"}
+  H -->|"yes"| K["Skip until released"]
+  H -->|"no"| P["Deleted from storage, record marked purged"]
+  U["Customer deletes a file"] --> V["Links revoked at once, file purged"]
+  Z["Account closure requested"] --> Z1{"Blockers? running jobs, held funds,<br/>leftover credit, org admin"}
+  Z1 -->|"yes"| ZX["Refused with the reason"]:::fail
+  Z1 -->|"no"| Z2["Re-check password and code"]
+  Z2 --> Z3["Access stops at once, email stays reserved"]
+  Z3 --> Z4["After 7 days purge files unless held"]
+  EX["Data export: 7 day link, own data only"]
+  BK["Backup and combined restore: NOT BUILT, no proof yet"]:::nb
+  QU["Storage quota per tenant: NOT BUILT"]:::nb
+  classDef built fill:#e3f1f1,stroke:#0f5f63,color:#14202b
+classDef nb fill:#f1f1f1,stroke:#8a8a8a,stroke-dasharray:5 3,color:#555
+classDef fail fill:#fdeaea,stroke:#b3261e,color:#14202b
+  class A,B,C,H,K,P,U,Z,Z1,Z2,Z3,Z4,EX built

@@ -1,0 +1,8 @@
+%% 11. Beneficiary approval and vendor settlements. NOT BUILT: depends on payment provider
+flowchart TD
+  A["Vendor adds bank beneficiary"]:::nb --> B["Second person approves"]:::nb
+  B --> C["Beneficiary active after cooling period"]:::nb
+  D["Settlement run: vendor retail earnings"]:::nb --> E["Finance approves batch"]:::nb
+  E --> F["Payout through provider"]:::nb
+  F --> G["Mark paid, reconcile"]:::nb
+  classDef nb fill:#f1f1f1,stroke:#8a8a8a,stroke-dasharray:5 3,color:#555

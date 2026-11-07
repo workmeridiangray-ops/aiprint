@@ -1,0 +1,22 @@
+%% 3. Direct versus vendor online journey and the counter workflow
+flowchart TD
+  S{"Where did the customer start?"}
+  S -->|"platform direct store"| D1["Price = platform processing price only<br/>no vendor charge"]
+  S -->|"vendor store online"| V1["Price = vendor retail price + platform processing price"]
+  S -->|"vendor counter, walk in"| C1["Counter staff opens a minimal customer record"]
+  D1 --> Q["Quote: snapshot of settings and source file, valid 15 minutes"]
+  V1 --> Q
+  Q --> R["Reserve customer credit and, for vendors, vendor processing credit"]
+  R --> J["Job runs, output validated"]
+  J --> OUT["Customer downloads from Your files"]
+  C1 --> C2["Counter edits artwork for the customer"]
+  C2 --> C3{"Payment taken outside the app?"}
+  C3 -->|"yes"| C4["Record external payment with receipt number<br/>no ledger entry for cash"]
+  C3 -->|"no, unpaid"| C5["Admin override only, with a reason, audited"]
+  C4 --> C6["Reserve vendor processing credit only"]
+  C5 --> C6
+  C6 --> J
+  C7["Walk-in later claims the project"] --> C8["Vendor checks reference and contact<br/>claim and verified customer: NOT BUILT"]:::nb
+  classDef built fill:#e3f1f1,stroke:#0f5f63,color:#14202b
+  classDef nb fill:#f1f1f1,stroke:#8a8a8a,stroke-dasharray:5 3,color:#555
+  class D1,V1,Q,R,J,OUT,C1,C2,C4,C5,C6 built
