@@ -47,11 +47,18 @@ async function newRecoveryCodes(c: { query: Function }, userId: string) {
   return codes;
 }
 
+/** Two-step is required when the role is in MFA_REQUIRED_ROLES, or when the user has a vendor staff role in a store whose latest settings version requires it for staff. */
+export async function userRequiresMfa(c: { query: Function }, userId: string): Promise<boolean> {
+  const rows = (await c.query(`select m.role, coalesce((select v.require_staff_mfa from vendor_settings_versions v where v.tenant_id=m.tenant_id order by v.version desc limit 1), false) as store_requires
+     from memberships m join tenants t on t.id=m.tenant_id where m.user_id=$1 and m.revoked_at is null and t.status in ('active','closing')`, [userId])).rows as { role: string; store_requires: boolean }[];
+  return rows.some(r => requiredRoles().includes(r.role) || (r.role.startsWith('vendor_') && r.store_requires));
+}
+
 /* ---------- enrolment ---------- */
 export async function mfaStatus(actor: Actor) {
   const u = (await getPool().query('select mfa_enabled_at from users where id=$1', [actor.userId])).rows[0];
   const left = (await getPool().query('select count(*)::int n from mfa_recovery_codes where user_id=$1 and used_at is null', [actor.userId])).rows[0].n;
-  return { enabled: !!u.mfa_enabled_at, required: requiredRoles().includes(actor.role), recoveryCodesLeft: left as number };
+  return { enabled: !!u.mfa_enabled_at, required: await userRequiresMfa(getPool(), actor.userId), recoveryCodesLeft: left as number };
 }
 export async function startEnrolment(actor: Actor) {
   const u = (await getPool().query('select email, mfa_enabled_at from users where id=$1', [actor.userId])).rows[0];
@@ -86,8 +93,8 @@ export async function regenerateRecoveryCodes(actor: Actor, code: string) {
   return tx(async c => { await proveTotp(c, actor.userId, code); const codes = await newRecoveryCodes(c, actor.userId); await audit(c, { actor: actor.userId, tenant: actor.tenantId, action: 'mfa.codes_regenerated', id: actor.userId, outcome: 'ok' }); return { recoveryCodes: codes }; });
 }
 export async function disableMfa(actor: Actor, code: string) {
-  if (requiredRoles().includes(actor.role)) throw new AppError('mfa_required', 'Your role requires two-step sign-in, so it cannot be turned off', 403);
   return tx(async c => {
+    if (await userRequiresMfa(c, actor.userId)) throw new AppError('mfa_required', 'Your role or your store requires two-step sign-in, so it cannot be turned off', 403);
     await proveTotp(c, actor.userId, code);
     await c.query('update users set mfa_secret=null, mfa_pending_secret=null, mfa_enabled_at=null, mfa_last_step=null where id=$1', [actor.userId]);
     await c.query('delete from mfa_recovery_codes where user_id=$1', [actor.userId]);

@@ -26,3 +26,9 @@ MFA_ENC_KEY loss makes enrolled authenticator secrets unreadable: users must be 
 
 ## Not built (do not promise)
 Payment provider integration, malware scanning, scheduled/automatic backups and off-site copies, per-tenant storage quota, secret rotation.
+
+## Closing a store
+1. The store admin requests closure (Settings and closure). New jobs stop; customers are emailed.
+2. Open /admin, Store closures. Wait for the notice date; clear open jobs and credit holds.
+3. If balances exist, settle them outside the system and write the reference in the settlement note, then Close this store.
+4. Files are deleted automatically after CLOSED_STORE_PURGE_DAYS unless an investigation hold exists. Ledger and audit records stay.

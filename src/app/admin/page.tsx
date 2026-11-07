@@ -7,6 +7,7 @@ async function call(url: string, method: string, body?: unknown) {
   if (r.status === 401) { location.href = '/login'; throw new Error('auth'); }
   const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.message ?? 'Request failed'); return b;
 }
+import Closures from './Closures';
 const POLICY_NAMES: Record<string, string> = { terms: 'Terms', privacy: 'Privacy', refund: 'Refund policy', acceptable_use: 'Acceptable use' };
 export default function Admin() {
   const [aud, setAud] = useState<any>(null); const [audQ, setAudQ] = useState<Record<string, string>>({}); const [jobs, setJobs] = useState<any>(null); const [ov, setOv] = useState<any>(null); const [enq, setEnq] = useState<any[]>([]); const [runs, setRuns] = useState<any>(null); const [filter, setFilter] = useState('');
@@ -44,6 +45,7 @@ export default function Admin() {
           {ov.tenants.map((t: any) => <tr key={t.id}><td>{t.name}{t.slug ? <span className="muted"> /{t.slug}</span> : ''}</td><td>{t.kind}</td><td>{t.status}</td><td>{t.subscription ?? '-'}</td><td>{t.plan ?? '-'}</td><td>{t.jobs}</td><td className={t.storageQuotaBytes && t.storageUsedBytes >= t.storageQuotaBytes ? 'err' : ''}>{(t.storageUsedBytes / 1048576).toFixed(1)} MB{t.storageQuotaBytes ? ` of ${Math.round(t.storageQuotaBytes / 1048576)} MB${t.storageUsedBytes >= t.storageQuotaBytes ? ' (full)' : ''}` : ''}</td><td>{new Date(t.createdAt).toLocaleDateString()}</td></tr>)}</tbody></table>}
         <p className="muted">A store becomes active only when a verified payment activates its subscription. Nothing here can mark one paid.</p></section>
 
+      <Closures />
       <section className="card"><h2>Processing price</h2>
         <p className="muted">{ov.processingPrice ? `Current: ${rs(ov.processingPrice.perMpPaise)} per megapixel, minimum ${rs(ov.processingPrice.minPaise)}. New quotes use this; earlier quotes keep their snapshot.` : 'Not set. Quotes cannot be priced until it is set.'}</p>
         {owner ? <form onSubmit={form(f => call('/api/platform/pricing', 'POST', { perMpPaise: Math.round(Number(f.get('pm')) * 100), minPaise: Math.round(Number(f.get('mn')) * 100) }), 'Processing price saved.')}>

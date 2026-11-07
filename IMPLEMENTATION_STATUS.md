@@ -127,3 +127,9 @@ Canvas drag-to-move and a corner resize handle (kept on-canvas so it can always 
 
 ## Commands
 `cp .env.example .env`; create DBs per `.env.example`; `npm run migrate`; `npm run seed:dev`; `npm run dev`; `npm run worker` and `npm run scheduler` in separate processes; `npm test` (uses `TEST_DATABASE_URL`, drops and recreates its schema).
+
+## Part 25: vendor settings and closure (SC-034)
+- Migration 016 (vendor_settings_versions, vendor_closures, tenant status 'closing'). src/server/storeadmin.ts; screens /vendor/settings and the Store closures section on /admin; scheduler task closed_store_purge.
+- Staff two-step flag per store (mfa.ts userRequiresMfa); closing stores stay reachable for downloads but cannot start work.
+- Tests: tests/storeadmin.test.ts (8). Full run: 252 passing in 25 files.
+- Assumptions to confirm: CLOSURE_NOTICE_DAYS=14, CLOSED_STORE_PURGE_DAYS=7. Not done: a browser run of the two new screens, email to platform when a closure is requested.

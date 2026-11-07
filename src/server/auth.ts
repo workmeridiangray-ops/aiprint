@@ -1,7 +1,7 @@
 import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
 import { getPool, tx, AppError } from './db';
 import { sha, issueSession } from './sessions';
-import { keys, lockKey, assertNotLocked, recordFailure, auditLockoutCrossing, createChallenge, requiredRoles } from './mfa';
+import { keys, lockKey, assertNotLocked, recordFailure, auditLockoutCrossing, createChallenge, userRequiresMfa } from './mfa';
 
 export function hashPassword(pw: string): string {
   const salt = randomBytes(16);
@@ -38,8 +38,7 @@ export async function login(email: string, password: string, source = 'unknown')
     // With two-step on, a correct password must NOT clear the count: otherwise a stolen password could farm unlimited code guesses.
     if (u.mfa_enabled_at) return { userId: u.id as string, challenge: await createChallenge(c, u.id), enrolOnly: false, needsSession: false };
     await c.query('delete from login_failures where email_key=$1', [k.email]);
-    const roles = (await c.query("select role from memberships where user_id=$1 and revoked_at is null", [u.id])).rows.map(x => x.role as string);
-    return { userId: u.id as string, challenge: undefined, enrolOnly: roles.some(x => requiredRoles().includes(x)), needsSession: true };
+    return { userId: u.id as string, challenge: undefined, enrolOnly: await userRequiresMfa(c, u.id), needsSession: true };
   });
   if (!out) throw new AppError('invalid_credentials', 'Email or password is incorrect', 401);
   if (out.challenge) return { challenge: out.challenge, userId: out.userId };
@@ -58,7 +57,7 @@ export async function resolveActor(token: string | undefined, requestedTenantId:
   if (s.rows[0].enrol_only && !opts.allowEnrolOnly) throw new AppError('mfa_enrolment_required', 'Set up two-step sign-in to continue', 403);
   const m = await p.query(
     `select tenant_id, role from memberships m join tenants t on t.id=m.tenant_id
-     where m.user_id=$1 and m.revoked_at is null and t.status='active' and ($2::uuid is null or m.tenant_id=$2::uuid)
+     where m.user_id=$1 and m.revoked_at is null and t.status in ('active','closing') and ($2::uuid is null or m.tenant_id=$2::uuid)
      order by m.created_at limit 2`, [s.rows[0].user_id, requestedTenantId ?? null]);
   if (!m.rowCount) throw new AppError('denied', 'No access to this workspace', 403);
   if (!requestedTenantId && m.rowCount > 1) throw new AppError('tenant_required', 'Choose a workspace', 400);

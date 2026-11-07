@@ -43,7 +43,7 @@ Totals (refreshed in the gap pass): 75 surfaces; 54 partial, 2 blocked, 19 not s
 | SC-031 | Vendor reports | Partial | Overview only | tests/vendor.test.ts | No reports/exports |
 | SC-032 | Vendor credits and top-up | Not started | - | - | Not implemented |
 | SC-033 | Vendor settlement statement | Not started | - | - | Not implemented |
-| SC-034 | Vendor settings and closure | Not started | - | - | Not implemented |
+| SC-034 | Vendor settings and closure | Implemented (policy numbers assumed) | src/server/storeadmin.ts, migration 016, /vendor/settings, /admin closures | tests/storeadmin.test.ts (8) | Versioned settings with stale-save refusal; staff two-step flag; closure request stops new work, 14-day notice (assumed), blocked by open jobs/holds, settlement note for balances (money moves outside the system), purge after 7 days (assumed), ledger/audit kept |
 | SC-035 | Customer dashboard | Partial | /projects (projects list, create, links to files, help, security, data), /library | tests/projects-quotes.test.ts; tests/retention.test.ts | No balance, spend or recent-activity summary; no dedicated dashboard design |
 | SC-036 | Project list | Partial | /projects (own, organisation and shared-with-you projects; new project in organisation) | HTTP smoke; browser runs | No search/archive/pagination |
 | SC-037 | Upload and setup | Partial | /projects/[id] file picker, POST /api/files | tests/security.test.ts (upload inspection) | Local-disk storage only; no malware scanning/quarantine workflow; no front/back second image; no preset list |

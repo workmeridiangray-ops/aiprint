@@ -68,6 +68,8 @@ the policy check (role and tenant) happens inside each handler through src/serve
 | API | `/api/outputs/[id]/link` | POST | session + membership |
 | API | `/api/outputs/[id]/preview` | GET | session + membership |
 | API | `/api/platform/audit` | GET | session + membership |
+| API | `/api/platform/closures/[id]/complete` | POST | session + membership |
+| API | `/api/platform/closures` | GET | session + membership |
 | API | `/api/platform/direct-store` | POST | session + membership |
 | API | `/api/platform/enquiries/[id]` | PATCH | session + membership |
 | API | `/api/platform/enquiries` | GET | session + membership |
@@ -90,9 +92,12 @@ the policy check (role and tenant) happens inside each handler through src/serve
 | API | `/api/support` | GET, POST | session + membership |
 | API | `/api/transactions` | GET | session + membership |
 | API | `/api/vendor/branding` | PATCH | session + membership |
+| API | `/api/vendor/closure/cancel` | POST | session + membership |
+| API | `/api/vendor/closure` | GET, POST | session + membership |
 | API | `/api/vendor/customers` | GET | session + membership |
 | API | `/api/vendor/overview` | GET | session + membership |
 | API | `/api/vendor/pricing` | GET, PUT | session + membership |
+| API | `/api/vendor/settings` | GET, PUT | session + membership |
 | API | `/api/vendor/staff` | GET | session + membership |
 | API | `/api/vendors` | POST | public |
 | Page | `/business/join` | GET | see page |
@@ -111,4 +116,5 @@ the policy check (role and tenant) happens inside each handler through src/serve
 | Page | `/vendor/claims` | GET | see page |
 | Page | `/vendor/customers` | GET | see page |
 | Page | `/vendor` | GET | see page |
+| Page | `/vendor/settings` | GET | see page |
 | Page | `/verify` | GET | see page |

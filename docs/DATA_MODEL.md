@@ -1,6 +1,6 @@
 # Data model
 
-Generated from the migrated development database (43 tables). Migrations in /migrations are the source of truth.
+Generated from the migrated development database (45 tables). Migrations in /migrations are the source of truth.
 
 ### account_requests
 - id uuid not null
@@ -457,6 +457,25 @@ Generated from the migrated development database (43 tables). Migrations in /mig
 - mfa_last_step bigint
 - closed_at timestamp with time zone
 
+### vendor_closures
+- id uuid not null
+- tenant_id uuid not null
+- reason text not null
+- status text not null
+- requested_by uuid not null
+- requested_at timestamp with time zone not null
+- earliest_close_at timestamp with time zone not null
+- cancelled_by uuid
+- cancelled_at timestamp with time zone
+- closed_by uuid
+- closed_at timestamp with time zone
+- settlement_note text
+- liabilities_at_close jsonb
+- purge_after timestamp with time zone
+- purged_at timestamp with time zone
+- purge_note text
+- references: tenant_id -> tenants; requested_by -> users; cancelled_by -> users; closed_by -> users
+
 ### vendor_pricing
 - id uuid not null
 - tenant_id uuid not null
@@ -474,6 +493,18 @@ Generated from the migrated development database (43 tables). Migrations in /mig
 - support_email text
 - updated_at timestamp with time zone not null
 - references: tenant_id -> tenants
+
+### vendor_settings_versions
+- tenant_id uuid not null
+- version integer not null
+- billing_contact_name text
+- billing_email text
+- support_email text
+- support_phone text
+- require_staff_mfa boolean not null
+- changed_by uuid not null
+- created_at timestamp with time zone not null
+- references: tenant_id -> tenants; changed_by -> users
 
 ### walkin_claims
 - id uuid not null
