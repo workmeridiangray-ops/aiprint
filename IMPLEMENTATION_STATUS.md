@@ -60,12 +60,15 @@ Payments, top-ups, refunds, settlements and reconciliation (provider blocked); e
 ## Gap pass (Part 14)
 Matrix refreshed against the code: 12 stale rows corrected (MFA, profile/security, dashboard, platform overview, jobs, health, WF-04 to WF-14), F/DEV/PM/FE/BE mapped. Gaps newly stated: no five-minute signed download link; no 30-minute abandoned-hold expiry; no upload progress/cancel; no storage quota; no heartbeat or exhausted-retry review UI; no runtime version pin or CI; no session list; no audit search; no customer list (SC-024).
 
+## Editor handles (Part 15)
+Canvas drag-to-move and a corner resize handle (kept on-canvas so it can always be grabbed), one undo step per gesture, saved through the same revision-token path. Browser check `tests/e2e/editor-drag.cjs`: 60 px / 30 px drag gave 17.95 / 8.98 mm offsets (correct at the preview scale), survived reload, undo restored scale. The check caught a real bug (focus scrolled the page mid-drag and corrupted the vertical offset); fixed with `preventScroll`. Not tested on a touch device. No unit test (pointer logic lives in the page).
+
 ## Next steps (in order)
 0. Organisation: profile form, per-person sharing, reassignment of removed members' projects, queued CSV exports, top-up (provider-blocked); the month boundary (IST) is my assumption: confirm with the client.
 0. Staff screens for the enquiry queue and platform admin (plans, processing prices, policies, direct store are API-only); email sender; client review of public copy; approved policy text; vendor onboarding page and pre-activation access to branding/pricing; printable counter receipt; platform admin UI for plans and processing prices; claim walk-in project (SC-030, not started); vendor processing-credit top-up (blocked on provider).
 1. Real provider check: send a test message through the chosen SMTP/provider (SPF/DKIM set up by the client); bounce handling.
 2. Audit log writes on the remaining state changes (projects, quotes, reservations).
-3. Drag-to-move/crop handles, back-side image, wire browser tests into `npm test`, transactional outbox for dispatch events, JPG/TIFF/PDF export, canvas editor with transforms, ICC/CMYK profile handling, enhancement adapter, needs_review path for paid upstream adapters. Redis queue is NOT used: Postgres SKIP LOCKED is the queue for now (deviation, to revisit at scale).
+3. Free crop rectangle and rotate handle, back-side image, touch-device testing of the drag handles, wire browser tests into `npm test`, transactional outbox for dispatch events, JPG/TIFF/PDF export, canvas editor with transforms, ICC/CMYK profile handling, enhancement adapter, needs_review path for paid upstream adapters. Redis queue is NOT used: Postgres SKIP LOCKED is the queue for now (deviation, to revisit at scale).
 4. Versioned pricing and plans; vendor credit top-up UI once provider is chosen.
 5. Real-browser tests.
 

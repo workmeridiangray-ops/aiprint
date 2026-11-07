@@ -18,6 +18,7 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
   const [state, setState] = useState<Save>('saved'); const [msg, setMsgRaw] = useState(''); const [bad, setBad] = useState(false); const setMsg = (m: string, isErr = false) => { setMsgRaw(m); setBad(isErr && !!m); }; const [quote, setQuote] = useState<any>(null);
   const [loading, setLoading] = useState(true); const timer = useRef<any>(null); const dirty = useRef(false);
   const [meta, setMeta] = useState<{ orgId: string | null; visibility: string; mine: boolean }>({ orgId: null, visibility: 'private', mine: true }); const [zoom, setZoom] = useState(1); const [imgInfo, setImgInfo] = useState<{ w: number; h: number; profile?: string } | null>(null);
+  const hit = useRef<{ cx: number; cy: number; hx: number; hy: number; pxPerMm: number } | null>(null); const drag = useRef<null | { kind: 'move' | 'scale'; x: number; y: number; start: S; d0: number }>(null);
   const img = useRef<HTMLImageElement | null>(null); const canvas = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => { (async () => {
@@ -34,6 +35,30 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
   useEffect(() => { const h = (e: BeforeUnloadEvent) => { if (dirty.current) e.preventDefault(); }; addEventListener('beforeunload', h); return () => removeEventListener('beforeunload', h); }, []);
   useEffect(() => { const on = () => dirty.current && scheduleSave(sRef.current, 0); const off = () => setState(st => (st === 'saved' ? st : 'offline')); addEventListener('online', on); addEventListener('offline', off); return () => { removeEventListener('online', on); removeEventListener('offline', off); }; }); // eslint-disable-line
 
+  function pt(e: React.PointerEvent) { const c = canvas.current!; const r = c.getBoundingClientRect(); return { x: (e.clientX - r.left) * (c.width / r.width), y: (e.clientY - r.top) * (c.height / r.height), ratio: c.width / r.width }; }
+  function down(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (!meta.mine || !hit.current) return; const p = pt(e); const h = hit.current;
+    const onHandle = Math.abs(p.x - h.hx) <= 14 && Math.abs(p.y - h.hy) <= 14;
+    drag.current = { kind: onHandle ? 'scale' : 'move', x: p.x, y: p.y, start: sRef.current, d0: Math.hypot(h.hx - h.cx, h.hy - h.cy) };
+    e.currentTarget.setPointerCapture(e.pointerId); e.currentTarget.focus({ preventScroll: true });
+  }
+  function moveP(e: React.PointerEvent<HTMLCanvasElement>) {
+    const p = pt(e); const h = hit.current; const d = drag.current;
+    if (!d || !h) { e.currentTarget.style.cursor = h && Math.abs(p.x - h.hx) <= 14 && Math.abs(p.y - h.hy) <= 14 ? 'nwse-resize' : 'grab'; return; }
+    if (d.kind === 'move') {
+      const next = { ...d.start, offsetXMm: +(d.start.offsetXMm + (p.x - d.x) / h.pxPerMm).toFixed(2), offsetYMm: +(d.start.offsetYMm + (p.y - d.y) / h.pxPerMm).toFixed(2) };
+      setS(next); dirty.current = true; setState('unsaved'); setQuote(null);
+    } else if (d.d0 > 0) {
+      const dist = Math.hypot(p.x - h.cx, p.y - h.cy);
+      const next = { ...d.start, scale: +clamp(d.start.scale * (dist / d.d0), 0.05, 20).toFixed(3) };
+      setS(next); dirty.current = true; setState('unsaved'); setQuote(null);
+    }
+  }
+  function up() {
+    const d = drag.current; drag.current = null; if (!d) return;
+    if (JSON.stringify(d.start) === JSON.stringify(sRef.current)) return;
+    past.current.push(d.start); if (past.current.length > 100) past.current.shift(); future.current = []; scheduleSave(sRef.current); bump(x => x + 1);
+  }
   const geo = imgInfo ? placement(imgInfo.w, imgInfo.h, s) : null;
   const eff = geo ? geo.effectiveDpi : null;
 
@@ -50,6 +75,11 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
       ctx.save(); ctx.beginPath(); ctx.rect(b, b, tw, th); ctx.clip();
       ctx.translate(b + (g.left + g.nw / 2) * pk, b + (g.top + g.nh / 2) * pk); ctx.rotate((cur.rotationDeg * Math.PI) / 180);
       ctx.drawImage(im, (-im.naturalWidth * g.total * pk) / 2, (-im.naturalHeight * g.total * pk) / 2, im.naturalWidth * g.total * pk, im.naturalHeight * g.total * pk); ctx.restore();
+      const a = (cur.rotationDeg * Math.PI) / 180, hw = (im.naturalWidth * g.total * pk) / 2, hh = (im.naturalHeight * g.total * pk) / 2;
+      const cx = b + (g.left + g.nw / 2) * pk, cy = b + (g.top + g.nh / 2) * pk;
+      const hx = clamp(cx + hw * Math.cos(a) - hh * Math.sin(a), 10, c.width - 10), hy = clamp(cy + hw * Math.sin(a) + hh * Math.cos(a), 10, c.height - 10); // kept on the canvas so it can always be grabbed
+      hit.current = { cx, cy, hx, hy, pxPerMm: mm };
+      ctx.fillStyle = '#0f5f63'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.rect(hx - 7, hy - 7, 14, 14); ctx.fill(); ctx.stroke();
     }
     ctx.fillStyle = 'rgba(15,95,99,.12)'; ctx.fillRect(0, 0, c.width, b); ctx.fillRect(0, c.height - b, c.width, b); ctx.fillRect(0, b, b, th); ctx.fillRect(c.width - b, b, b, th); // bleed area (filled by edge mirroring on export)
     ctx.lineWidth = 1; ctx.strokeStyle = '#c0392b'; ctx.strokeRect(b + .5, b + .5, tw, th); // trim
@@ -121,8 +151,8 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
       <button type="button" onClick={() => setZoom(z => clamp(+(z - 0.25).toFixed(2), 0.5, 3))} aria-label="Zoom out">−</button><span aria-live="polite">{Math.round(zoom * 100)}%</span>
       <button type="button" onClick={() => setZoom(z => clamp(+(z + 0.25).toFixed(2), 0.5, 3))} aria-label="Zoom in">+</button>
       <button type="button" onClick={() => setZoom(1)}>Reset zoom</button></div>
-      <div style={{ overflow: 'auto', maxWidth: '100%' }}><canvas ref={canvas} tabIndex={0} onKeyDown={onKey} role="img" aria-label="Print preview. Use arrow keys to move the image, Shift for larger steps, Ctrl+Z to undo." style={{ border: '1px solid var(--line)', maxWidth: 'none' }} /></div>
-      <p className="muted">Red line: trim. Green dashes: safe area. Tinted edge: bleed, filled by mirroring your image edges when exported. This is a preview; the exported file is produced on the server.</p></div>
+      <div style={{ overflow: 'auto', maxWidth: '100%' }}><canvas ref={canvas} tabIndex={0} onKeyDown={onKey} onPointerDown={down} onPointerMove={moveP} onPointerUp={up} onPointerCancel={up} role="img" aria-label="Print preview. Drag to move the image, drag the square corner handle to resize. Arrow keys also move it, Shift for larger steps, Ctrl+Z to undo. The numeric fields below do the same." style={{ border: '1px solid var(--line)', maxWidth: 'none', touchAction: 'none', cursor: 'grab' }} /></div>
+      <p className="muted">Drag the image to move it; drag the square corner handle to resize. Red line: trim. Green dashes: safe area. Tinted edge: bleed, filled by mirroring your image edges when exported. This is a preview; the exported file is produced on the server.</p></div>
     <details className="card" open><summary><strong>Size and output</strong></summary>
       <div className="grid"><div><label htmlFor="preset">Preset</label><select id="preset" value="" onChange={e => { const p = PRESETS[e.target.value]; if (p) set({ widthMm: p[0], heightMm: p[1] }); }}><option value="">Custom</option>{Object.keys(PRESETS).map(k => <option key={k}>{k}</option>)}</select></div>
         {num('widthMm', 'Width (mm)', 1, 1, 500)}{num('heightMm', 'Height (mm)', 1, 1, 500)}{num('bleedMm', 'Bleed (mm)', 0.5, 0, 20)}{num('dpi', 'Resolution (dpi)', 50, 72, 1200)}
