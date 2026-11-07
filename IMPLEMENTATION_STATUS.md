@@ -1,0 +1,46 @@
+# IMPLEMENTATION_STATUS
+
+Updated: 2026-11-07. Spec baseline: R3 (MG-ARTWORK-2026-1107-R3), ₹12.5 lakh base. **Not production-ready.** This is the first vertical slice of a much larger build.
+
+## Baseline
+- No repository was supplied, so this one was created empty at `artwork-saas/` (local, git, single branch). No prior code, dependencies or tests existed.
+- Stack: Next.js 15 (App Router) + TypeScript 5.9, PostgreSQL 16, `sharp` for image inspection, `zod`, `vitest`. Modular monolith under `src/server/`.
+- Decisions: scrypt password hashing; opaque session tokens stored hashed; tenant context resolved from an unrevoked membership, never trusted from the client; ledgers are integer paise, append-only (DB trigger), idempotent by key.
+- The separate physical-printing Framer project was never accessed. The 75-surface Framer design for this product lives in a different (Framer) project and was not used as a source here.
+
+## Implemented and tested (29 automated tests, real PostgreSQL)
+- Sign-in/out, session expiry, revoked membership, duplicate/weak credentials. Origin check on mutating API calls.
+- Deny-by-default policy; tenant + owner isolation for projects, files, quotes; not-found instead of forbidden to prevent ID probing.
+- Upload inspection: JPG/PNG only, 25 MB, 40 MP, truncated/corrupt rejected, embedded vs untagged profile reported.
+- Settings validation: 500 mm per side, 80 MP including bleed.
+- Projects with revision-checked, server-confirmed saves; concurrent same-revision saves: one wins.
+- Quote (15 min expiry, stale-on-change), atomic reservation of customer credit and vendor processing credit, idempotent reserve, cancel-before-dispatch release, running job keeps hold; 20-way concurrency tests for both ledgers.
+- UI: login, project list, editor (numeric settings, upload, autosave status, conflict banner, quote, reserve).
+- Explicit dev seed (`npm run seed:dev`) refuses staging/production.
+
+## Verified by running
+- `npm test` → 2 files, 29 tests pass. `npm run typecheck` clean. `next build` succeeds.
+- Live HTTP smoke against `next start`: no cookie 401, bad origin 403, wrong password 401, login → create project → upload → save → stale save conflict → quote → reserve all returned expected results. The browser UI was **not** driven in a real browser yet.
+
+## Not built (see REQUIREMENTS_MATRIX.md for per-ID status)
+Public website (SC-001–012), registration/verification/reset/MFA/invites, vendor onboarding/branding/subscriptions/staff/pricing/counter flows, business workspaces and member limits, canvas editor and transforms, export engine and worker, queue/outbox/leases, payments, refunds, settlements, reconciliation, tickets, retention/closure/backup, audit search UI, admin screens, notifications, flowcharts (14), runbooks, S3 storage driver, Redis queue, malware scanning, accessibility and mobile verification, load test.
+
+## Genuine blockers (external)
+- Payment provider not selected/credentialed; no collection, top-up, refund or settlement can be built to a live standard. Production must fail closed (nothing simulates success).
+- CMYK/RGB profiles, representative sample files, enhancement adapter choice, approved infrastructure for restore and performance tests.
+- Signed optional-module selection sheet.
+
+## Known deviations / caveats
+- Pricing is a labelled development placeholder (`PRICING_VERSION = dev-placeholder-v0`), not versioned configuration.
+- Storage is local disk (refused when `APP_ENV=production`).
+- R3 PDF and markdown not diffed in this pass. DEV/PM/FE/BE groups and Annexes C–K not yet mapped.
+
+## Next steps (in order)
+1. Registration, email verification, reset, invites, last-admin protection (SC-013–019, AT-29).
+2. Audit log writes on every state change (table exists, unused).
+3. Worker + transactional outbox + job leases, then output engine and validation (SC-043–045, AT-05/09/10).
+4. Versioned pricing and plans; vendor credit top-up UI once provider is chosen.
+5. Real-browser tests; Mermaid diagrams; runbooks.
+
+## Commands
+`cp .env.example .env`; create DBs per `.env.example`; `npm run migrate`; `npm run seed:dev`; `npm run dev`; `npm test` (uses `TEST_DATABASE_URL`, drops and recreates its schema).
