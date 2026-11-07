@@ -19,7 +19,8 @@
     "backup": "tsx scripts/backup.ts",
     "restore": "tsx scripts/restore.ts",
     "create-owner": "tsx scripts/create-owner.ts",
-    "check-runtime": "tsx scripts/check-runtime.ts"
+    "check-runtime": "tsx scripts/check-runtime.ts",
+    "e2e": "tsx scripts/e2e.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1164.0",
