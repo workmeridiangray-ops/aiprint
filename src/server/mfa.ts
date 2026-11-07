@@ -122,6 +122,13 @@ export async function assertNotLocked(c: { query: Function }, k: { email: string
   if (e >= LIMITS.emailFailures || s >= LIMITS.sourceFailures) throw new AppError('too_many_attempts', `Too many failed attempts. Try again in ${LIMITS.windowMinutes} minutes.`, 429);
 }
 export const recordFailure = (c: { query: Function }, k: { email: string; source: string }) => c.query('insert into login_failures(email_key,source_key) values($1,$2)', [k.email, k.source]);
+/** Records one 'auth.locked_out' row at the moment a limit is reached (not on every later blocked request, so an attack cannot flood the log). */
+export async function auditLockoutCrossing(c: { query: Function }, k: { email: string; source: string }, actor: string | null) {
+  const w = `now() - interval '${LIMITS.windowMinutes} minutes'`;
+  const e = (await c.query(`select count(*)::int n from login_failures where email_key=$1 and created_at>${w}`, [k.email])).rows[0].n;
+  const s = (await c.query(`select count(*)::int n from login_failures where source_key=$1 and created_at>${w}`, [k.source])).rows[0].n;
+  if (e === LIMITS.emailFailures || s === LIMITS.sourceFailures) await c.query("insert into audit_log(actor_user_id,action,object_type,outcome) values($1,'auth.locked_out','user',$2)", [actor, e === LIMITS.emailFailures ? 'email_limit' : 'source_limit']);
+}
 export const lockKey = (c: { query: Function }, k: { email: string }) => c.query('select pg_advisory_xact_lock(hashtext($1))', [k.email]);
 
 export async function createChallenge(c: { query: Function }, userId: string) {
@@ -147,7 +154,7 @@ export async function verifyChallenge(challenge: string, code: string, source: s
       const r = await c.query('update mfa_recovery_codes set used_at=now() where id=(select id from mfa_recovery_codes where user_id=$1 and code_hash=$2 and used_at is null limit 1) returning id', [ch.user_id, hashCode(raw)]);
       if (r.rowCount) used = 'recovery';
     }
-    if (!used) { await recordFailure(c, k); return { fail: true as const }; } // commit the attempt count and the failure, then reject below
+    if (!used) { await recordFailure(c, k); await audit(c, { actor: ch.user_id, action: 'auth.code_failed', outcome: 'denied' }); await auditLockoutCrossing(c, k, ch.user_id); return { fail: true as const }; } // commit the attempt count and the failure, then reject below
     await c.query('update mfa_challenges set used_at=now() where id=$1', [ch.id]);
     await c.query('delete from login_failures where email_key=$1', [k.email]);
     if (used === 'recovery') { await audit(c, { actor: ch.user_id, action: 'mfa.recovery_used', id: ch.user_id, outcome: 'ok' }); await notice(c, ch.user_id, 'mfa_recovery_used'); }

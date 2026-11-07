@@ -25,6 +25,7 @@ export async function createQuote(actor: Actor, projectId: string) {
       `insert into quotes(tenant_id,project_id,project_revision,source_file_id,settings_snapshot,customer_amount_paise,vendor_charge_paise,pricing_version,channel,retail_pricing_id,platform_pricing_id,expires_at)
        values($1,$2,$3,$9,$4,$5,$6,$7,$10,$11,$12, now() + ($8 || ' minutes')::interval) returning id, expires_at`,
       [p.tenant_id, p.id, p.revision, JSON.stringify(settings), customer, vendor, `retail:${retailId}/platform:${platformId ?? 'none'}`, String(QUOTE_TTL_MINUTES), p.source_file_id, p.counter_customer_id ? 'counter' : 'online', retailId, platformId]);
+    await audit(c, { actor: actor.userId, tenant: actor.tenantId, action: 'quote.create', type: 'quote', id: q.rows[0].id, outcome: 'ok' });
     return { quoteId: q.rows[0].id as string, expiresAt: q.rows[0].expires_at as Date, customerAmountPaise: customer, vendorChargePaise: vendor };
   });
 }
@@ -74,6 +75,7 @@ async function reserveQuoteTx(actor: Actor, quoteId: string) {
     const res = await c.query('insert into reservations(quote_id,customer_account_id,vendor_account_id,customer_paise,vendor_paise,org_id,spender_user_id) values($1,$2,$3,$4,$5,$6,$7) returning id',
       [quoteId, custAcc, vendAcc, q.customer_amount_paise, q.vendor_charge_paise, q.org_id ?? null, q.org_id ? actor.userId : null]);
     const job = await c.query("insert into jobs(tenant_id,reservation_id,status) values($1,$2,'queued') returning id", [q.tenant_id, res.rows[0].id]);
+    await audit(c, { actor: actor.userId, tenant: q.tenant_id, action: 'quote.reserved', type: 'job', id: job.rows[0].id, outcome: 'held' });
     return { reservationId: res.rows[0].id as string, jobId: job.rows[0].id as string, repeated: false };
   });
 }

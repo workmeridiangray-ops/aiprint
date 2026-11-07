@@ -110,3 +110,29 @@ describe('sign-in audit trail', () => {
     expect(JSON.stringify(rows)).not.toContain(email); expect(JSON.stringify(rows)).not.toContain(token!);
   });
 });
+
+describe('audit coverage and tamper resistance', () => {
+  it('audit rows cannot be changed or deleted', async () => {
+    const { getPool } = await import('../src/server/db'); const p = getPool();
+    await p.query("insert into audit_log(action,outcome) values('test.immutable','ok')");
+    await expect(p.query("update audit_log set outcome='x' where action='test.immutable'")).rejects.toThrow(/append-only/);
+    await expect(p.query("delete from audit_log where action='test.immutable'")).rejects.toThrow(/append-only/);
+  });
+  it('records lockout once at the limit, failed codes, logout, project, file and quote events', async () => {
+    const { getPool } = await import('../src/server/db'); const p = getPool(); const { createUser, login, logout } = await import('../src/server/auth');
+    const { createProject, saveProject } = await import('../src/server/projects'); const { createQuote } = await import('../src/server/quotes'); const { fund } = await import('./helpers');
+    const t = await mkTenant('Audit Cov'); const email = 'audit-cov@x.test'; await createUser(email, 'correct-horse-battery', t, 'customer');
+    const n = async (a: string) => Number((await p.query("select count(*) n from audit_log where action=$1", [a])).rows[0].n);
+    const lock0 = await n('auth.locked_out');
+    for (let i = 0; i < 8; i++) await login(email, 'wrong-password-123', 'src-lock').catch(() => {});
+    expect(await n('auth.locked_out') - lock0).toBe(1); // 5th failure crosses the limit; later blocked tries add nothing
+    await p.query('delete from login_failures');
+    const out0 = await n('auth.logout'); const { token } = await login(email, 'correct-horse-battery', 'src-ok'); await logout(token!); expect(await n('auth.logout') - out0).toBe(1);
+    const [pr0, f0, q0] = [await n('project.create'), await n('file.upload'), await n('quote.create')];
+    const u = await mkActor(t, 'audit-cov2@x.test'); const proj = await createProject(u, 'A');
+    const f = await saveOriginal(u, await sharp({ create: { width: 400, height: 300, channels: 3, background: '#2a6' } }).png().toBuffer());
+    await saveProject(u, proj.id, 1, { sourceFileId: f.fileId, settings: { widthMm: 50, heightMm: 30, bleedMm: 2, dpi: 300, fit: 'fill' } });
+    await fund(t, u.userId, 100000, 'ac-c'); await createQuote(u, proj.id);
+    expect([await n('project.create') - pr0, await n('file.upload') - f0, await n('quote.create') - q0]).toEqual([1, 1, 1]);
+  });
+});

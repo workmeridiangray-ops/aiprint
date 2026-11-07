@@ -6,6 +6,7 @@ import { getPool, AppError } from './db';
 import type { Actor } from './auth';
 import { require as authorize } from './policy';
 import { canReadProject } from './org';
+import { audit } from './identity';
 import { storage, StorageMissing } from './storage';
 
 export const LIMITS = { maxBytes: 25 * 1024 * 1024, maxPixels: 40_000_000, formats: ['jpeg', 'png'] as const };
@@ -38,6 +39,7 @@ export async function saveOriginal(actor: Actor, buf: Buffer) {
     `insert into stored_files(tenant_id,owner_user_id,kind,storage_key,sha256,bytes,width_px,height_px,format)
      values($1,$2,'original',$3,$4,$5,$6,$7,$8) returning id`,
     [actor.tenantId, actor.userId, key, insp.sha256, insp.bytes, insp.width, insp.height, insp.format]);
+  await audit(getPool(), { actor: actor.userId, tenant: actor.tenantId, action: 'file.upload', type: 'file', id: r.rows[0].id, outcome: 'ok' });
   return { fileId: r.rows[0].id as string, ...insp, colourProfile: insp.hasProfile ? 'embedded' : 'untagged' };
 }
 

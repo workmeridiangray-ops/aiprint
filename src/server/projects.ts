@@ -3,6 +3,7 @@ import { getPool, tx, AppError } from './db';
 import type { Actor } from './auth';
 import { require as authorize } from './policy';
 import { canReadProject } from './org';
+import { audit } from './identity';
 
 export const SettingsSchema = z.object({
   widthMm: z.number().min(1).max(500),
@@ -38,6 +39,7 @@ export async function createProject(actor: Actor, name: string, orgId?: string) 
     if (!m.rowCount) throw new AppError('not_found', 'Organisation not found', 404);
   }
   const r = await getPool().query('insert into projects(tenant_id,owner_user_id,name,org_id) values($1,$2,$3,$4) returning id,revision', [actor.tenantId, actor.userId, name.slice(0, 120), orgId ?? null]);
+  await audit(getPool(), { actor: actor.userId, tenant: actor.tenantId, action: 'project.create', type: 'project', id: r.rows[0].id, outcome: 'ok' });
   return r.rows[0] as { id: string; revision: number };
 }
 
