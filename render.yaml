@@ -1,0 +1,49 @@
+# Render Blueprint. Untested until it is connected to a real Render account: see docs/DEPLOY.md.
+# Secrets are marked sync: false, so Render asks for them in the dashboard and they never live in this repository.
+services:
+  - type: web
+    name: artwork-web
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    preDeployCommand: npm run migrate
+    envVars: &env
+      - { key: APP_ENV, value: production }
+      - { key: APP_URL, sync: false }
+      - { key: DATABASE_URL, sync: false }
+      - { key: DATABASE_SSL, value: require }
+      - { key: STORAGE_DRIVER, value: s3 }
+      - { key: S3_BUCKET, sync: false }
+      - { key: S3_ENDPOINT, sync: false }
+      - { key: S3_REGION, value: auto }
+      - { key: S3_FORCE_PATH_STYLE, value: "true" }
+      - { key: S3_ACCESS_KEY_ID, sync: false }
+      - { key: S3_SECRET_ACCESS_KEY, sync: false }
+      - { key: MFA_ENC_KEY, sync: false }
+      - { key: AUTH_HASH_SALT, sync: false }
+      - { key: DOWNLOAD_LINK_SECRET, sync: false }
+      - { key: MFA_REQUIRED_ROLES, value: "platform_owner,platform_support" }
+      - { key: EMAIL_DRIVER, value: smtp }
+      - { key: EMAIL_FROM, sync: false }
+      - { key: SMTP_HOST, sync: false }
+      - { key: SMTP_PORT, value: "587" }
+      - { key: SMTP_USER, sync: false }
+      - { key: SMTP_PASSWORD, sync: false }
+  - type: worker
+    name: artwork-worker
+    runtime: docker
+    plan: starter
+    dockerCommand: npm run worker
+    envVars: *env
+  - type: worker
+    name: artwork-scheduler
+    runtime: docker
+    plan: starter
+    dockerCommand: npm run scheduler   # run exactly one instance
+    envVars: *env
+  - type: worker
+    name: artwork-mailer
+    runtime: docker
+    plan: starter
+    dockerCommand: npm run mailer
+    envVars: *env

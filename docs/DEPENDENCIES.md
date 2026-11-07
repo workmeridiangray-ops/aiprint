@@ -25,7 +25,7 @@ licence terms must be reviewed by the client's counsel before commercial hand-ov
 | s3rver | 3.7.1 | MIT | dev |
 | sharp | 0.35.5 | Apache-2.0 | runtime |
 | smtp-server | 3.21.3 | MIT-0 | dev |
-| tsx | 4.23.15 | MIT | dev |
+| tsx | 4.23.15 | MIT | runtime |
 | typescript | 5.9.3 | Apache-2.0 | dev |
 | vitest | 5.1.0 | MIT | dev |
 | zod | 4.6.7 | MIT | runtime |

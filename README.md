@@ -24,7 +24,7 @@ Browser flows in `tests/e2e/` are manual scripts, not part of `npm test`.
 `npm run backup -- <dir>` and `npm run restore -- <dir>`; procedure and limits in `docs/runbooks/incident.md`.
 
 ## Staging / production
-See `docs/runbooks/operator.md`. Staging and production fail closed: no local storage, no mail without a driver, no payment success without a provider.
+Deployment guide for Render + Supabase + Cloudflare R2: `docs/DEPLOY.md`. Operations: `docs/runbooks/operator.md`. Staging and production fail closed: no local storage, no mail without a driver, no payment success without a provider.
 
 ## Documentation
 - `docs/flowcharts/` 14 diagrams with built / NOT BUILT marked

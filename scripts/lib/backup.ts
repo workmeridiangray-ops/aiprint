@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync } from 'node:fs';
 import path from 'node:path';
 import pg from 'pg';
+import { pgConfig } from '../../src/server/db';
 import { storage } from '../../src/server/storage';
 
 const sha = (b: Buffer) => createHash('sha256').update(b).digest('hex');
@@ -28,7 +29,7 @@ export async function backup(dir: string) {
   mkdirSync(path.join(dir, 'files'), { recursive: true }); chmodSync(dir, 0o700);
   const dump = path.join(dir, 'db.dump');
   execFileSync('pg_dump', ['--format=custom', '--no-owner', '--file', dump, dbUrl()], { stdio: 'pipe' });
-  const c = new pg.Client({ connectionString: dbUrl() }); await c.connect();
+  const c = new pg.Client(pgConfig()); await c.connect();
   try {
     const rows = (await c.query("select id, storage_key, sha256, bytes from stored_files where deleted_at is null order by created_at")).rows;
     const files: Array<{ key: string; sha256: string; bytes: number }> = []; const missing: string[] = [];
@@ -50,7 +51,7 @@ export async function restore(dir: string, opts: { keepSessions?: boolean } = {}
   const m = JSON.parse(readFileSync(path.join(dir, 'MANIFEST.json'), 'utf8'));
   if (sha(readFileSync(path.join(dir, 'db.dump'))) !== m.dumpSha256) throw new Error('database dump does not match its manifest checksum; backup is corrupt');
   // Short-lived connections: pg_restore runs as a child process and blocks this one, so no connection is held open across it.
-  const probe = new pg.Client({ connectionString: dbUrl() }); await probe.connect();
+  const probe = new pg.Client(pgConfig()); await probe.connect();
   try {
     const t = await probe.query("select count(*)::int n from information_schema.tables where table_schema='public'");
     if (t.rows[0].n > 0) throw new Error('target database is not empty; restore refuses to overwrite');
@@ -63,7 +64,7 @@ export async function restore(dir: string, opts: { keepSessions?: boolean } = {}
     await st.put(f.key, buf);
   }
   if (bad.length) throw new Error('backup files failed their checksum: ' + bad.join(', '));
-  const c = new pg.Client({ connectionString: dbUrl() }); await c.connect();
+  const c = new pg.Client(pgConfig()); await c.connect();
   try {
     // Everyone signs in again: a session in the backup may belong to a user whose password, role or account changed afterwards.
     if (!opts.keepSessions) await c.query('delete from sessions');

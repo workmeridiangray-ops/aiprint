@@ -1,0 +1,8 @@
+node_modules
+.next
+.data
+.env
+.git
+tests/e2e
+docs
+*.tsbuildinfo

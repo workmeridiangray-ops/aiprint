@@ -17,7 +17,8 @@
     "check:storage": "tsx scripts/check-storage.ts",
     "dev:s3": "tsx scripts/dev-s3.ts",
     "backup": "tsx scripts/backup.ts",
-    "restore": "tsx scripts/restore.ts"
+    "restore": "tsx scripts/restore.ts",
+    "create-owner": "tsx scripts/create-owner.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1164.0",
@@ -30,6 +31,7 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "sharp": "^0.35.5",
+    "tsx": "^4.23.15",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -42,7 +44,6 @@
     "@types/smtp-server": "^3.5.13",
     "s3rver": "^3.7.1",
     "smtp-server": "^3.21.3",
-    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^5.1.0"
   }

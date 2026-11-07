@@ -1,8 +1,9 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import pg from 'pg';
+import { pgConfig } from '../src/server/db';
 const url = process.env.DATABASE_URL;
 if (!url) { console.error('DATABASE_URL required'); process.exit(1); }
-const c = new pg.Client({ connectionString: url });
+const c = new pg.Client(pgConfig());
 await c.connect();
 await c.query('create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())');
 for (const f of readdirSync('migrations').filter(f => f.endsWith('.sql')).sort()) {

@@ -8,7 +8,7 @@ Updated: 2026-11-07. Spec baseline: R3 (MG-ARTWORK-2026-1107-R3), ₹12.5 lakh b
 - Decisions: scrypt password hashing; opaque session tokens stored hashed; tenant context resolved from an unrevoked membership, never trusted from the client; ledgers are integer paise, append-only (DB trigger), idempotent by key.
 - The separate physical-printing Framer project was never accessed. The 75-surface Framer design for this product lives in a different (Framer) project and was not used as a source here.
 
-## Implemented and tested (205 automated tests, real PostgreSQL)
+## Implemented and tested (209 automated tests, real PostgreSQL)
 - Sign-in/out, session expiry, revoked membership, duplicate/weak credentials. Origin check on mutating API calls.
 - Deny-by-default policy; tenant + owner isolation for projects, files, quotes; not-found instead of forbidden to prevent ID probing.
 - Upload inspection: JPG/PNG only, 25 MB, 40 MP, truncated/corrupt rejected, embedded vs untagged profile reported.
@@ -33,7 +33,7 @@ Updated: 2026-11-07. Spec baseline: R3 (MG-ARTWORK-2026-1107-R3), ₹12.5 lakh b
 - Explicit dev seed (`npm run seed:dev`) refuses staging/production.
 
 ## Verified by running
-- `npm test` → 19 files, 205 tests pass. `npm run typecheck` clean. `next build` succeeds.
+- `npm test` → 20 files, 209 tests pass. `npm run typecheck` clean. `next build` succeeds.
 - Live HTTP smoke against `next start`: no cookie 401, bad origin 403, wrong password 401, login → create project → upload → save → stale save conflict → quote → reserve all returned expected results. The browser UI was **not** driven in a real browser yet.
 
 ## Not built (see REQUIREMENTS_MATRIX.md for per-ID status)
@@ -92,6 +92,11 @@ Canvas drag-to-move and a corner resize handle (kept on-canvas so it can always 
 - Closed in Part 21: `audit_log` is append-only through SQL (migration 012 trigger), and these are now audited: failed two-step code, lockout (one row when a limit is reached, so an attack cannot flood the log), logout, project create, file upload, quote create and reserve. Still not audited: project autosaves (volume), downloads. A database superuser can still bypass the trigger, so this is not proof against the hosting operator.
 - Applying migration 011 to the dev database was needed (the admin page 500'd until `npm run migrate`): run migrate on every environment after pulling.
 - Tests: 3 new (audit search, customer list, sign-in audit); browser check tests/e2e/audit-customers-flow.cjs.
+
+## Deployment preparation (Part 22)
+- Prepared for Render (Docker: web, worker, scheduler, mailer), Supabase Postgres and Cloudflare R2 (S3 driver): `Dockerfile`, `.dockerignore`, `render.yaml` (valid YAML, four services, secrets marked `sync: false`), `docs/DEPLOY.md`, `GET /api/health` (200, or 503 when the database is down; checked locally both ways), TLS-aware database settings (`DATABASE_SSL`, `DATABASE_SSL_CA`; 3 tests), `tsx` moved to runtime dependencies because the worker scripts need it.
+- NOT done and NOT tested: no Docker build was run (none available here), nothing deployed, R2 and Supabase never contacted, Render Blueprint never applied. `npm run create-owner` creates the first platform owner from OWNER_EMAIL/OWNER_PASSWORD (refuses if one exists).
+- Cloudflare Workers for the whole app was rejected (sharp and the job worker cannot run there); reasons in docs/DEPLOY.md.
 
 ## Next steps (in order)
 0. Organisation: profile form, per-person sharing, reassignment of removed members' projects, queued CSV exports, top-up (provider-blocked); the month boundary (IST) is my assumption: confirm with the client.
