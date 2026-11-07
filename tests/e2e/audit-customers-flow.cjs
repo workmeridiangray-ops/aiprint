@@ -1,7 +1,7 @@
 // Manual browser check for /vendor/customers and the /admin audit search. Needs the dev seed, tests/e2e/mkplatform.mts users and a server on :3113 started with MFA_REQUIRED_ROLES= (empty).
 const { chromium } = require('playwright');
 (async () => {
-  const b = await chromium.launch(); const B = 'http://localhost:3113'; const errs = [];
+  const b = await chromium.launch(); const B = process.env.E2E_BASE || 'http://localhost:3113'; const errs = [];
   const login = async (email, re) => { const p = await (await b.newContext({ viewport: { width: 1100, height: 1000 } })).newPage(); p.on('pageerror', e => errs.push(e.message));
     await p.goto(B + '/login'); await p.fill('#email', email); await p.fill('#password', 'dev-password-12345'); await p.click('button'); await p.waitForURL(re); return p; };
   const v = await login('dev.admin@example.test', /\/(vendor|projects)$/); await v.goto(B + '/vendor/customers'); await v.waitForSelector('table');

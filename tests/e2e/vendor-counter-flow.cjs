@@ -1,6 +1,6 @@
 const { chromium } = require('playwright');
 (async () => {
-  const b = await chromium.launch(); const B = 'http://localhost:3114'; const errs = [];
+  const b = await chromium.launch(); const B = process.env.E2E_BASE || 'http://localhost:3113'; const errs = [];
   async function login(email) { const ctx = await b.newContext({ viewport: { width: 1000, height: 1100 } }); const p = await ctx.newPage(); p.on('pageerror', e => errs.push(e.message));
     await p.goto(B + '/login'); await p.fill('#email', email); await p.fill('#password', 'dev-password-12345'); await p.click('button'); await p.waitForURL('**/projects'); return { ctx, p }; }
   // vendor admin

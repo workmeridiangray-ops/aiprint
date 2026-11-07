@@ -1,6 +1,6 @@
 const { chromium } = require('playwright');
 const { execSync } = require('child_process');
-const B = 'http://localhost:3115'; const DB = process.env.DATABASE_URL;
+const B = process.env.E2E_BASE || 'http://localhost:3113'; const DB = process.env.DATABASE_URL;
 const sql = q => execSync('psql "' + DB + '" -tAc "' + q.replace(/"/g, '\\"') + '"').toString().trim();
 const PAGES = ['/', '/software', '/services', '/how-it-works', '/plans', '/pricing', '/faq', '/contact', '/terms', '/privacy', '/refund-policy', '/acceptable-use'];
 (async () => {

@@ -13,9 +13,11 @@ const out = process.env.E2E_OUT ?? './.data/e2e-out'; fs.mkdirSync(out, { recurs
 const run = (cmd: string, args: string[], e: NodeJS.ProcessEnv = env, quiet = true) => spawnSync(cmd, args, { env: e, stdio: quiet ? 'pipe' : 'inherit', encoding: 'utf8' });
 const sh = (cmd: string, args: string[], e?: NodeJS.ProcessEnv) => { const r = run(cmd, args, e); if (r.status !== 0) throw new Error(`${cmd} ${args.join(' ')} failed:\n${r.stdout}${r.stderr}`); return r; };
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
-const kids: ChildProcess[] = []; const bg = (cmd: string, args: string[], e: NodeJS.ProcessEnv) => { const c = spawn(cmd, args, { env: e, stdio: 'ignore' }); kids.push(c); return c; };
+// detached = own process group, so the whole npx tree can be stopped
+const kids: ChildProcess[] = []; const bg = (cmd: string, args: string[], e: NodeJS.ProcessEnv) => { const c = spawn(cmd, args, { env: e, stdio: 'ignore', detached: true }); kids.push(c); return c; };
 async function waitUp() { for (let i = 0; i < 60; i++) { try { if ((await fetch(`http://localhost:${PORT}/login`)).ok) return; } catch {} await sleep(1000); } throw new Error('app did not start'); }
-const stopAll = () => { for (const k of kids.splice(0)) k.kill('SIGTERM'); };
+const stop = (k: ChildProcess) => { try { process.kill(-k.pid!, 'SIGTERM'); } catch {} };
+const stopAll = () => { for (const k of kids.splice(0)) stop(k); };
 process.on('exit', stopAll);
 
 (async () => {
@@ -29,7 +31,7 @@ process.on('exit', stopAll);
     const e = { ...env, MFA_REQUIRED_ROLES: mfaRoles }; if (mfaRoles === '') e.MFA_REQUIRED_ROLES = '';
     const app = bg('npx', ['next', 'start', '-p', PORT], e); const worker = bg('npx', ['tsx', 'scripts/worker.ts'], e); await waitUp();
     for (const [name, args] of scripts) { const r = run('node', [`tests/e2e/${name}.cjs`, ...args], e); const ok = r.status === 0; results.push([name, ok, ok ? '' : (r.stdout + r.stderr).split('\n').slice(-12).join('\n')]); console.log(ok ? 'PASS' : 'FAIL', name); }
-    app.kill('SIGTERM'); worker.kill('SIGTERM'); await sleep(1500);
+    stop(app); stop(worker); await sleep(2500);
   };
   const S = (n: string) => `${out}/${n}.png`;
   await phase('', [['public-site-flow', []], ['editor-flow', [sample]], ['editor-drag', [sample]], ['cmyk-flow', [sample, out]], ['library-flow', [S('library')]], ['vendor-counter-flow', [sample]],

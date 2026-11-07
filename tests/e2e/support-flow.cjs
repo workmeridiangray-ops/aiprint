@@ -2,7 +2,7 @@
 // and a server on :3113 started with MFA_REQUIRED_ROLES= (empty). Creates a throwaway customer for the closure part.
 const { chromium } = require('playwright'); const { Client } = require('pg');
 (async () => {
-  const B = 'http://localhost:3113'; const b = await chromium.launch(); const errs = []; const PW = 'dev-password-12345';
+  const B = process.env.E2E_BASE || 'http://localhost:3113'; const b = await chromium.launch(); const errs = []; const PW = 'dev-password-12345';
   const page = async (email) => { const ctx = await b.newContext({ viewport: { width: 1000, height: 1000 } }); const p = await ctx.newPage(); p.on('pageerror', e => errs.push(e.message));
     await p.goto(B + '/login'); await p.fill('#email', email); await p.fill('#password', PW); await p.click('button:has-text("Sign in")'); await p.waitForURL(/\/(admin|projects)$/); return p; };
   // customer opens a ticket from a file in the library

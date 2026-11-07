@@ -3,7 +3,7 @@
 const { chromium } = require('playwright'); const fs = require('fs');
 (async () => {
   const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1100, height: 1300 } }); const p = await ctx.newPage();
-  const B = 'http://localhost:3113'; const errs = []; const bad = []; p.on('response', r => r.status() >= 400 && bad.push(r.status() + ' ' + r.url().replace(/^https?:\/\/[^/]+/, ''))); p.on('pageerror', e => errs.push(e.message)); p.on('console', m => m.type() === 'error' && errs.push(m.text()));
+  const B = process.env.E2E_BASE || 'http://localhost:3113'; const errs = []; const bad = []; p.on('response', r => r.status() >= 400 && bad.push(r.status() + ' ' + r.url().replace(/^https?:\/\/[^/]+/, ''))); p.on('pageerror', e => errs.push(e.message)); p.on('console', m => m.type() === 'error' && errs.push(m.text()));
   await p.goto(B + '/login'); await p.fill('#email', 'dev.customer@example.test'); await p.fill('#password', 'dev-password-12345'); await p.click('button'); await p.waitForURL('**/projects');
   await p.click('text=New artwork'); await p.waitForURL(/projects\/[0-9a-f-]{36}/); await p.waitForSelector('canvas');
   await p.setInputFiles('#file', process.argv[2]); await p.waitForSelector('text=All changes saved', { timeout: 15000 });

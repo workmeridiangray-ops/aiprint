@@ -5,7 +5,7 @@ const unb32 = s => { let bits = 0, v = 0; const out = []; for (const ch of s) { 
 const hotp = (key, c) => { const b = Buffer.alloc(8); b.writeBigUInt64BE(BigInt(c)); const h = crypto.createHmac('sha1', key).update(b).digest(); const o = h[19] & 15; return String((((h[o] & 0x7f) << 24) | (h[o + 1] << 16) | (h[o + 2] << 8) | h[o + 3]) % 1e6).padStart(6, '0'); };
 const step = () => Math.floor(Date.now() / 30000);
 (async () => {
-  const B = 'http://localhost:3113'; const b = await chromium.launch(); const errs = [];
+  const B = process.env.E2E_BASE || 'http://localhost:3113'; const b = await chromium.launch(); const errs = [];
   const page = async () => { const ctx = await b.newContext({ viewport: { width: 900, height: 900 } }); const p = await ctx.newPage(); p.on('pageerror', e => errs.push(e.message)); return p; };
   const signIn = async (p, email, pw = 'dev-password-12345') => { await p.goto(B + '/login'); await p.fill('#email', email); await p.fill('#password', pw); await p.click('button:has-text("Sign in")'); };
   // 1. required role: forced to enrol, blocked from admin until done

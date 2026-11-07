@@ -2,7 +2,7 @@
 // argv[2] = a PNG/JPG to upload, argv[3] = folder for screenshots.
 const { chromium } = require('playwright');
 (async () => {
-  const b = await chromium.launch(); const B = 'http://localhost:3113'; const errs = [];
+  const b = await chromium.launch(); const B = process.env.E2E_BASE || 'http://localhost:3113'; const errs = [];
   const as = async (email) => { const ctx = await b.newContext({ viewport: { width: 1000, height: 1000 } }); const p = await ctx.newPage(); p.on('pageerror', e => errs.push(email + ': ' + e.message));
     await p.goto(B + '/login'); await p.fill('#email', email); await p.fill('#password', 'dev-password-12345'); await p.click('button'); await p.waitForURL(u => !u.pathname.startsWith('/login')); return p; };
   // 1. counter staff serve a walk-in whose recorded contact is the customer's email

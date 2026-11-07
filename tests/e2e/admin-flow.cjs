@@ -2,7 +2,7 @@
 // Manual browser check. Needs dev DB with platform users (tests/e2e/mkplatform.mts) and a server on :3113.
 const { chromium } = require('playwright');
 (async () => {
-  const b = await chromium.launch(); const errs = []; const B = 'http://localhost:3113';
+  const b = await chromium.launch(); const errs = []; const B = process.env.E2E_BASE || 'http://localhost:3113';
   const login = async (email) => { const ctx = await b.newContext({ viewport: { width: 1100, height: 1000 } }); const p = await ctx.newPage(); p.on('pageerror', e => errs.push(e.message)); p.on('console', m => m.type() === 'error' && errs.push(m.text()));
     await p.goto(B + '/login'); await p.fill('#email', email); await p.fill('#password', 'dev-password-12345'); await p.click('button'); await p.waitForURL(/\/(admin|projects)$/); return p; };
   const o = await login('dev.owner@example.test'); console.log('owner lands on:', new URL(o.url()).pathname);

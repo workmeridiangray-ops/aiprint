@@ -2,7 +2,7 @@
 const { chromium } = require('playwright');
 (async () => {
   const b = await chromium.launch(); const p = await (await b.newContext({ viewport: { width: 1100, height: 1200 } })).newPage();
-  const B = 'http://localhost:3113'; const errs = []; p.on('pageerror', e => errs.push(e.message));
+  const B = process.env.E2E_BASE || 'http://localhost:3113'; const errs = []; p.on('pageerror', e => errs.push(e.message));
   await p.goto(B + '/projects'); await p.waitForURL('**/login');
   await p.fill('#email', 'dev.customer@example.test'); await p.fill('#password', 'dev-password-12345'); await p.click('button'); await p.waitForURL('**/projects');
   await p.click('text=New artwork'); await p.waitForURL(/projects\/[0-9a-f-]{36}/); await p.waitForSelector('canvas');
