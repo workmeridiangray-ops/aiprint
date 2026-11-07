@@ -38,7 +38,9 @@ export async function renderExport(source: Buffer, s: Settings): Promise<Buffer>
     case 'pdf': {
       const png = await base.png().toBuffer();
       const doc = await PDFDocument.create();
-      const wPt = (g.outW * 72) / s.dpi, hPt = (g.outH * 72) / s.dpi, b = (g.bleed * 72) / s.dpi;
+      // Page and boxes use exact millimetres (not rounded pixel counts); the raster is scaled by under half a pixel to fill the page.
+      const mm = (v: number) => (v / 25.4) * 72;
+      const wPt = mm(s.widthMm + 2 * s.bleedMm), hPt = mm(s.heightMm + 2 * s.bleedMm), b = mm(s.bleedMm);
       const page = doc.addPage([wPt, hPt]);
       page.drawImage(await doc.embedPng(png), { x: 0, y: 0, width: wPt, height: hPt });
       page.setBleedBox(0, 0, wPt, hPt); page.setTrimBox(b, b, wPt - 2 * b, hPt - 2 * b); // boxes only; no PDF/X claim
@@ -57,7 +59,8 @@ export async function validateOutput(buf: Buffer, s: Settings) {
     const doc = await PDFDocument.load(buf);
     if (doc.getPageCount() !== 1) throw new Error('output validation failed: PDF must have one page');
     const { width, height } = doc.getPage(0).getSize();
-    if (Math.abs(width - (w * 72) / s.dpi) > 0.5 || Math.abs(height - (h * 72) / s.dpi) > 0.5) throw new Error('output validation failed: PDF page size mismatch');
+    const mm = (v: number) => (v / 25.4) * 72;
+    if (Math.abs(width - mm(s.widthMm + 2 * s.bleedMm)) > 0.05 || Math.abs(height - mm(s.heightMm + 2 * s.bleedMm)) > 0.05) throw new Error('output validation failed: PDF page size mismatch');
   } else {
     const want = s.format === 'jpg' ? 'jpeg' : s.format;
     const m = await sharp(buf, { limitInputPixels: MAX_OUTPUT_PIXELS }).metadata();

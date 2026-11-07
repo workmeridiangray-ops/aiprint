@@ -79,3 +79,15 @@ describe('formats', () => {
     expect(() => S({ format: 'cmyk' })).toThrow(); expect(() => S({ format: 'gif' })).toThrow();
   });
 });
+
+describe('PDF boxes are exact millimetres', () => {
+  it('trim box equals the requested size even when bleed is not a whole number of pixels', async () => {
+    const src = await sharp({ create: { width: 900, height: 600, channels: 3, background: '#888' } }).jpeg().toBuffer();
+    const st = validateSettings({ widthMm: 90, heightMm: 54, bleedMm: 3, dpi: 150, fit: 'fill', format: 'pdf' });
+    const out = await renderExport(src, st);
+    await validateOutput(out, st);
+    const t = (await PDFDocument.load(out)).getPage(0).getTrimBox();
+    expect(Math.abs((t.width / 72) * 25.4 - 90)).toBeLessThan(0.01);
+    expect(Math.abs((t.height / 72) * 25.4 - 54)).toBeLessThan(0.01);
+  });
+});

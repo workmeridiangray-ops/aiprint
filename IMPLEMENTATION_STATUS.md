@@ -8,7 +8,7 @@ Updated: 2026-11-07. Spec baseline: R3 (MG-ARTWORK-2026-1107-R3), ₹12.5 lakh b
 - Decisions: scrypt password hashing; opaque session tokens stored hashed; tenant context resolved from an unrevoked membership, never trusted from the client; ledgers are integer paise, append-only (DB trigger), idempotent by key.
 - The separate physical-printing Framer project was never accessed. The 75-surface Framer design for this product lives in a different (Framer) project and was not used as a source here.
 
-## Implemented and tested (183 automated tests, real PostgreSQL)
+## Implemented and tested (184 automated tests, real PostgreSQL)
 - Sign-in/out, session expiry, revoked membership, duplicate/weak credentials. Origin check on mutating API calls.
 - Deny-by-default policy; tenant + owner isolation for projects, files, quotes; not-found instead of forbidden to prevent ID probing.
 - Upload inspection: JPG/PNG only, 25 MB, 40 MP, truncated/corrupt rejected, embedded vs untagged profile reported.
@@ -33,7 +33,7 @@ Updated: 2026-11-07. Spec baseline: R3 (MG-ARTWORK-2026-1107-R3), ₹12.5 lakh b
 - Explicit dev seed (`npm run seed:dev`) refuses staging/production.
 
 ## Verified by running
-- `npm test` → 16 files, 183 tests pass. `npm run typecheck` clean. `next build` succeeds.
+- `npm test` → 16 files, 184 tests pass. `npm run typecheck` clean. `next build` succeeds.
 - Live HTTP smoke against `next start`: no cookie 401, bad origin 403, wrong password 401, login → create project → upload → save → stale save conflict → quote → reserve all returned expected results. The browser UI was **not** driven in a real browser yet.
 
 ## Not built (see REQUIREMENTS_MATRIX.md for per-ID status)
@@ -49,6 +49,14 @@ Payments, top-ups, refunds, settlements and reconciliation (provider blocked); e
 - Storage is local disk (refused when `APP_ENV=production`).
 - R3 PDF and markdown not diffed in this pass. DEV/PM/FE/BE groups and Annexes C–K not yet mapped.
 
+## Documentation (Part 13)
+- `docs/flowcharts/` 14 Mermaid sources + rendered SVGs + index (unbuilt flows drawn as NOT BUILT; layouts not client-reviewed).
+- `docs/runbooks/` operator, finance, support, retention, incident. Written from the code; no drill has been run. Restore is unproven.
+- Generated: `docs/ROUTES.md` (93 routes/pages), `docs/DATA_MODEL.md` (40 tables), `docs/DEPENDENCIES.md` (LGPL libvips, MPL lightningcss, CC-BY caniuse-lite and several UNKNOWN dev packages flagged for review; not legal advice).
+- `docs/OUTPUT_ACCEPTANCE.md`: 60 synthetic renders (5 sizes x 4 formats x 3 dpi/bleed) re-measured independently, all pass. Synthetic source only; sRGB only; no CMYK; no PDF/X claim; not client-approved.
+- Defect found and fixed by the acceptance run: PDF trim box was off by up to ~0.2 mm when bleed was not a whole number of pixels. PDF page and Trim/Bleed boxes now use exact millimetres; regression test added.
+- `README.md` and `REMAINING_EXTERNAL.md` added. Runbooks mention gaps: no suspend-tenant or revoke-sessions screen, no secret rotation.
+
 ## Next steps (in order)
 0. Organisation: profile form, per-person sharing, reassignment of removed members' projects, queued CSV exports, top-up (provider-blocked); the month boundary (IST) is my assumption: confirm with the client.
 0. Staff screens for the enquiry queue and platform admin (plans, processing prices, policies, direct store are API-only); email sender; client review of public copy; approved policy text; vendor onboarding page and pre-activation access to branding/pricing; printable counter receipt; platform admin UI for plans and processing prices; claim walk-in project (SC-030, not started); vendor processing-credit top-up (blocked on provider).
@@ -56,7 +64,7 @@ Payments, top-ups, refunds, settlements and reconciliation (provider blocked); e
 2. Audit log writes on the remaining state changes (projects, quotes, reservations).
 3. Drag-to-move/crop handles, back-side image, wire browser tests into `npm test`, transactional outbox for dispatch events, JPG/TIFF/PDF export, canvas editor with transforms, ICC/CMYK profile handling, enhancement adapter, needs_review path for paid upstream adapters. Redis queue is NOT used: Postgres SKIP LOCKED is the queue for now (deviation, to revisit at scale).
 4. Versioned pricing and plans; vendor credit top-up UI once provider is chosen.
-5. Real-browser tests; Mermaid diagrams; runbooks.
+5. Real-browser tests.
 
 ## Commands
 `cp .env.example .env`; create DBs per `.env.example`; `npm run migrate`; `npm run seed:dev`; `npm run dev`; `npm run worker` and `npm run scheduler` in separate processes; `npm test` (uses `TEST_DATABASE_URL`, drops and recreates its schema).
