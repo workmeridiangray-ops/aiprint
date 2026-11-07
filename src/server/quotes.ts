@@ -5,6 +5,7 @@ import { validateSettings, outputPixels } from './projects';
 import { ensureAccount, ensureOrgAccount, available } from './ledger';
 import { canReadProject, monthUsage } from './org';
 import { priceFor, canProcess } from './vendor';
+import { notifyJob } from './queue';
 
 export const QUOTE_TTL_MINUTES = 15;
 
@@ -28,7 +29,11 @@ export async function createQuote(actor: Actor, projectId: string) {
 
 /** Atomically holds customer retail credit and vendor processing credit, then creates the queued job.
  *  Accounts are locked in id order (no deadlock); available = settled - held is checked under lock, so concurrent requests cannot overspend. */
+/** Reserves funds and queues the job in one transaction; only after it commits is the worker nudged (best effort). */
 export async function reserveQuote(actor: Actor, quoteId: string) {
+  const r = await reserveQuoteTx(actor, quoteId); if (!r.repeated) await notifyJob(r.jobId); return r;
+}
+async function reserveQuoteTx(actor: Actor, quoteId: string) {
   return tx(async c => {
     const qr = await c.query('select q.*, p.owner_user_id, p.org_id, p.revision as current_revision from quotes q join projects p on p.id=q.project_id where q.id=$1 for update of q', [quoteId]);
     const q = qr.rows[0];

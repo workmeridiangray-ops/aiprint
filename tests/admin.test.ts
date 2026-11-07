@@ -35,3 +35,14 @@ describe('admin overview', () => {
     expect(o.tenants.find(x => x.name === 'Pending V')).toMatchObject({ status: 'pending', subscription: 'pending', plan: null });
   });
 });
+
+describe('system health', () => {
+  it('staff only; reports queue from the database and storage settings, never secrets', async () => {
+    const { systemHealth } = await import('../src/server/admin');
+    await expect(systemHealth(await mkActor(VT, 'sh-cust@x.test'))).rejects.toMatchObject({ code: 'denied' });
+    const h = await systemHealth(await mkActor(PT, 'sh-staff@x.test', 'platform_owner'));
+    expect(h.jobs).toMatchObject({ queued: expect.any(Number), running: expect.any(Number) }); expect(h.storage).toMatchObject({ configured: true, driver: 'local' }); expect(h.redis).toEqual({ configured: false });
+    const prev = process.env.APP_ENV; process.env.APP_ENV = 'production'; const bad = await systemHealth(await mkActor(PT, 'sh-staff2@x.test', 'platform_support')); process.env.APP_ENV = prev;
+    expect(bad.storage.configured).toBe(false); expect(JSON.stringify(h)).not.toMatch(/S3RVER|secret/i);
+  });
+});

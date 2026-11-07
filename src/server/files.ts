@@ -1,12 +1,11 @@
 import sharp from 'sharp';
 import type { Metadata } from 'sharp';
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, writeFile, readFile, unlink } from 'node:fs/promises';
-import path from 'node:path';
 import { getPool, AppError } from './db';
 import type { Actor } from './auth';
 import { require as authorize } from './policy';
 import { canReadProject } from './org';
+import { storage, StorageMissing } from './storage';
 
 export const LIMITS = { maxBytes: 25 * 1024 * 1024, maxPixels: 40_000_000, formats: ['jpeg', 'png'] as const };
 
@@ -28,21 +27,11 @@ export async function inspectImage(buf: Buffer): Promise<Inspection> {
   return { format: meta.format as 'jpeg' | 'png', width: meta.width, height: meta.height, hasProfile: !!meta.icc, sha256: createHash('sha256').update(buf).digest('hex'), bytes: buf.length };
 }
 
-function storageDir() {
-  if (process.env.APP_ENV === 'production' && (process.env.STORAGE_DRIVER ?? 'local') === 'local')
-    throw new AppError('storage_not_configured', 'Private object storage is not configured for production', 503);
-  if ((process.env.STORAGE_DRIVER ?? 'local') !== 'local') throw new AppError('storage_not_configured', 'Only the local development storage driver is implemented', 503);
-  return process.env.STORAGE_LOCAL_DIR ?? './.data/files';
-}
-
 export async function saveOriginal(actor: Actor, buf: Buffer) {
   authorize(actor, 'file.upload', { tenantId: actor.tenantId });
   const insp = await inspectImage(buf);
-  const dir = storageDir();
   const key = `${actor.tenantId}/${randomUUID()}.${insp.format === 'jpeg' ? 'jpg' : 'png'}`;
-  const full = path.join(dir, key);
-  await mkdir(path.dirname(full), { recursive: true });
-  await writeFile(full, buf, { flag: 'wx' });
+  await storage().put(key, buf);
   const r = await getPool().query(
     `insert into stored_files(tenant_id,owner_user_id,kind,storage_key,sha256,bytes,width_px,height_px,format)
      values($1,$2,'original',$3,$4,$5,$6,$7,$8) returning id`,
@@ -61,13 +50,8 @@ export async function readOriginal(actor: Actor, fileId: string) {
   if (ok) { for (const p of refs) if (p.org_id && !(await canReadProject(getPool(), actor, p))) { ok = false; break; } } // owner who left the organisation loses organisation files
   if (!ok) for (const p of refs) if (p.org_id && p.visibility === 'shared' && (await canReadProject(getPool(), actor, p))) { ok = true; break; }
   if (!ok) throw new AppError('not_found', 'File not found', 404);
-  return readFile(path.join(storageDir(), row.storage_key));
+  return storage().get(row.storage_key).catch(e => { throw e instanceof StorageMissing ? new AppError('file_missing', 'The stored file could not be found. Support has been alerted.', 500) : e; });
 }
 
 /** Deletes a live copy. A file that is already gone counts as deleted (safe to rerun after a crash). Any other failure is thrown. */
-export async function deleteStored(storageKey: string) {
-  const root = path.resolve(storageDir()); const target = path.resolve(root, storageKey);
-  if (!target.startsWith(root + path.sep)) throw new Error('storage key escapes the storage directory');
-  try { await unlink(target); }
-  catch (e: any) { if (e?.code !== 'ENOENT') throw e; }
-}
+export async function deleteStored(storageKey: string) { await storage().remove(storageKey); }

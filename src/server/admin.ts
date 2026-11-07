@@ -31,3 +31,14 @@ export async function adminOverview(actor: Actor) {
     tenants: tenants.map(t => ({ id: t.id, name: t.name, kind: t.kind, status: t.status, slug: t.slug, subscription: t.subscription, plan: t.plan, jobs: t.jobs, createdAt: new Date(t.created_at).toISOString() })),
   };
 }
+
+/** Staff view of the moving parts: the job queue (from the database, which is the truth), the Redis signal channel, and storage settings. */
+export async function systemHealth(actor: Actor) {
+  if (!STAFF.includes(actor.role)) throw new AppError('denied', 'Not permitted', 403);
+  const { queueHealth } = await import('./queue'); const { storage } = await import('./storage');
+  const j = (await getPool().query(`select count(*) filter (where status='queued')::int queued, count(*) filter (where status='running')::int running,
+    coalesce(extract(epoch from now()-min(created_at) filter (where status='queued'))/60,0)::int oldest_minutes from jobs`)).rows[0];
+  let st: { configured: boolean; driver?: string; problem?: string };
+  try { st = { configured: true, driver: storage().kind }; } catch (e: any) { st = { configured: false, problem: e.message }; }
+  return { jobs: { queued: j.queued as number, running: j.running as number, oldestQueuedMinutes: j.oldest_minutes as number }, redis: await queueHealth(), storage: st };
+}

@@ -149,7 +149,7 @@ All **Not started** except where noted: WF-03 (customer starts project: upload â
 | WF-20 | Suspension/downgrade | Not started |
 | WF-21 | Support escalation | Partial (create, assign, request information, escalate, resolve with evidence, close; tests/support.test.ts). No attachments; emails carry reference only |
 | WF-22 | Closure/deletion | Partial (customer: request, reconcile, export, confirm, revoke, scheduled purge, holds; tests/account.test.ts). Vendor closure not built; no finance settlement step because refunds are blocked |
-| WF-23 | Retention job | Partial (scripts/scheduler.ts runs it hourly; last run and failures in job_runs) |
+| WF-23 | Retention job | Partial (scripts/scheduler.ts runs it hourly; last run and failures in job_runs; storage deletion works on local and S3 drivers, tests/storage.test.ts) |
 | WF-24 | Incident/restore | Not started |
 
 ## Requirement groups DEV / PM / FE / BE and Annexes Câ€“K

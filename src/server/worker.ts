@@ -1,7 +1,5 @@
 import type pg from 'pg';
 import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile, readFile } from 'node:fs/promises';
-import path from 'node:path';
 import { getPool, tx, AppError } from './db';
 import { renderExport, validateOutput, FORMATS } from './engine';
 import { postEntry } from './ledger';
@@ -10,13 +8,11 @@ import { validateSettings } from './projects';
 import { require as authorize } from './policy';
 import type { Actor } from './auth';
 import { canReadProject } from './org';
+import { storage } from './storage';
+import { notifyJob } from './queue';
 
 const MAX_ATTEMPTS = 3;
 export const RETENTION_DAYS = 90;
-function dir() {
-  if (process.env.APP_ENV === 'production' && (process.env.STORAGE_DRIVER ?? 'local') === 'local') throw new AppError('storage_not_configured', 'Private object storage is not configured for production', 503);
-  return process.env.STORAGE_LOCAL_DIR ?? './.data/files';
-}
 
 /** Atomically claim one queued job with a lease. SKIP LOCKED means concurrent workers never take the same job. */
 export async function claimJob(workerId: string, leaseSeconds = 60) {
@@ -74,12 +70,11 @@ export async function runJob(jobId: string, workerId: string, attempt: number, h
     if (!r.rowCount) throw new Error('job inputs missing');
     const row = r.rows[0];
     const settings = validateSettings(row.settings_snapshot); // immutable quote snapshot, not the live project
-    const src = await readFile(path.join(dir(), row.storage_key));
+    const src = await storage().get(row.storage_key);
     const out = await renderExport(src, settings);
     const v = await validateOutput(out, settings);
     const key = `${row.tenant_id}/exports/${randomUUID()}.${FORMATS[settings.format].ext}`;
-    await mkdir(path.dirname(path.join(dir(), key)), { recursive: true });
-    await writeFile(path.join(dir(), key), out, { flag: 'wx' });
+    await storage().put(key, out);
     if (hooks.beforeFinalize) await hooks.beforeFinalize();
     return await tx(async c => {
       const f = await c.query(`insert into stored_files(tenant_id,owner_user_id,kind,storage_key,sha256,bytes,width_px,height_px,format) values($1,$2,'export',$3,$4,$5,$6,$7,$8) returning id`,
@@ -96,7 +91,8 @@ export async function runJob(jobId: string, workerId: string, attempt: number, h
 /** Jobs whose lease expired: the local engine is deterministic and has no external side effect, so requeue (bounded).
  *  If a validated output already exists, finish instead of re-running. A paid external adapter MUST route to needs_review instead. */
 export async function reapExpired() {
-  return tx(async c => {
+  const requeuedIds: string[] = [];
+  const out = await tx(async c => {
     const r = await c.query("select id, attempts, reservation_id, tenant_id from jobs where status='running' and lease_expires_at < now() for update skip locked");
     let requeued = 0, failed = 0;
     for (const j of r.rows) {
@@ -104,10 +100,12 @@ export async function reapExpired() {
       if (j.attempts >= MAX_ATTEMPTS) {
         await c.query("update jobs set status='failed', last_error='lease expired too many times', finished_at=now(), lease_owner=null, lease_expires_at=null where id=$1", [j.id]);
         await c.query("update reservations set status='released', released_at=now() where id=$1 and status='held'", [j.reservation_id]); failed++;
-      } else { await c.query("update jobs set status='queued', lease_owner=null, lease_expires_at=null where id=$1", [j.id]); requeued++; }
+      } else { await c.query("update jobs set status='queued', lease_owner=null, lease_expires_at=null where id=$1", [j.id]); requeued++; requeuedIds.push(j.id); }
     }
     return { requeued, failed };
   });
+  for (const id of requeuedIds) await notifyJob(id);
+  return out;
 }
 
 export async function workOnce(workerId: string) {
@@ -125,7 +123,7 @@ export async function readOutput(actor: Actor, outputId: string) {
   if (!(await canReadProject(getPool(), actor, { tenant_id: o.p_tenant, owner_user_id: o.p_owner, org_id: o.org_id, visibility: o.visibility }))) throw nf();
   if (o.revoked_at || o.purged_at) throw new AppError('removed', 'This file was removed', 410);
   if (new Date(o.expires_at) <= new Date()) throw new AppError('expired', 'This file has passed its retention period', 410);
-  const buf = await readFile(path.join(dir(), o.storage_key)).catch(() => { throw new AppError('file_missing', 'The stored file could not be found. Support has been alerted.', 500); });
+  const buf = await storage().get(o.storage_key).catch(() => { throw new AppError('file_missing', 'The stored file could not be found. Support has been alerted.', 500); });
   const { createHash } = await import('node:crypto');
   if (createHash('sha256').update(buf).digest('hex') !== o.sha256) throw new AppError('integrity_failed', 'The stored file failed its integrity check. Support has been alerted.', 500);
   return { buf, format: o.format as string };
