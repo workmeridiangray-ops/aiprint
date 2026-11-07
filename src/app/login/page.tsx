@@ -6,7 +6,7 @@ export default function Login() {
     e.preventDefault(); setBusy(true); setErr('');
     const f = new FormData(e.currentTarget);
     const r = await fetch('/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: f.get('email'), password: f.get('password') }) });
-    if (r.ok) location.href = '/projects'; else { setErr((await r.json()).message ?? 'Sign in failed'); setBusy(false); }
+    if (r.ok) { const staff = await fetch('/api/platform/overview'); location.href = staff.ok ? '/admin' : '/projects'; } else { setErr((await r.json()).message ?? 'Sign in failed'); setBusy(false); }
   }
   return <main><div className="card" style={{ maxWidth: 380, margin: '60px auto' }}>
     <h1>Sign in</h1>
