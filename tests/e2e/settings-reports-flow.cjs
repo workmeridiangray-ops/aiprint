@@ -33,6 +33,6 @@ const { chromium } = require('playwright'); const { Client } = require('pg');
   const own = await as('dev.owner@example.test', u => !u.pathname.startsWith('/login')); await own.goto(B + '/admin'); await own.waitForSelector('#closures'); check('platform owner sees the closure', (await own.locator('#closures').innerText()).includes('Browser check'));
   await own.click('button:has-text("Close this store")'); await own.waitForSelector('#closures .err'); check('completion refused during notice period', /notice period/i.test(await own.locator('#closures').innerText()));
   await own.screenshot({ path: out + '/closure-admin.png', fullPage: true });
-  await adm.click('button:has-text("Cancel closure")'); await adm.waitForSelector('text=Closure cancelled.'); check('cancel restores the store', await adm.locator('#why').count() === 1);
+  await adm.click('button:has-text("Cancel closure")'); await adm.waitForSelector('text=Closure cancelled.'); await adm.waitForSelector('#why', { timeout: 10000 }); check('cancel restores the store (request form is back)', await adm.locator('#why').count() === 1);
   console.log('page errors:', errs.length ? errs : 'none'); await b.close(); if (errs.length) process.exit(1);
 })().catch(e => { console.error('E2E FAIL', e.message); process.exit(1); });
