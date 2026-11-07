@@ -24,9 +24,10 @@ flowchart TD
   T6 --> CM["Commit"]
   CM --> N["Nudge worker through Redis, best effort"]
   CM --> RP["Same request repeated: returns the same reservation, no second hold"]
+  AB["Queued 30 minutes with no attempt"] --> AC["Scheduler cancels job, releases hold, nothing charged"]
   Y["Cancel"] --> Z{"Job still queued?"}
   Z -->|"yes"| Z1["Cancelled, hold released"]
   Z -->|"running"| Z2["Cancellation requested, settled against the real outcome"]
   classDef built fill:#e3f1f1,stroke:#0f5f63,color:#14202b
   classDef fail fill:#fdeaea,stroke:#b3261e,color:#14202b
-  class A,B,C,D,TX,T1,T2,T3,T4,T5,T6,CM,N,RP,Y,Z,Z1,Z2 built
+  class AB,AC,A,B,C,D,TX,T1,T2,T3,T4,T5,T6,CM,N,RP,Y,Z,Z1,Z2 built

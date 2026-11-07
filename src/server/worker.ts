@@ -114,7 +114,7 @@ export async function workOnce(workerId: string) {
 }
 
 /** Protected download: owner only, within retention. Re-download is free: no ledger writes happen here. */
-export async function readOutput(actor: Actor, outputId: string) {
+async function loadOutput(actor: Actor, outputId: string) {
   const r = await getPool().query(`select o.*, f.storage_key, p.tenant_id as p_tenant, p.owner_user_id as p_owner, p.org_id, p.visibility from outputs o join stored_files f on f.id=o.file_id
     join jobs j on j.id=o.job_id join reservations rs on rs.id=j.reservation_id join quotes q on q.id=rs.quote_id join projects p on p.id=q.project_id where o.id=$1`, [outputId]);
   const o = r.rows[0];
@@ -123,6 +123,12 @@ export async function readOutput(actor: Actor, outputId: string) {
   if (!(await canReadProject(getPool(), actor, { tenant_id: o.p_tenant, owner_user_id: o.p_owner, org_id: o.org_id, visibility: o.visibility }))) throw nf();
   if (o.revoked_at || o.purged_at) throw new AppError('removed', 'This file was removed', 410);
   if (new Date(o.expires_at) <= new Date()) throw new AppError('expired', 'This file has passed its retention period', 410);
+  return o;
+}
+/** Access, removal and retention checks only (no file read): used before issuing a download link. */
+export async function authoriseOutput(actor: Actor, outputId: string) { await loadOutput(actor, outputId); }
+export async function readOutput(actor: Actor, outputId: string) {
+  const o = await loadOutput(actor, outputId);
   const buf = await storage().get(o.storage_key).catch(() => { throw new AppError('file_missing', 'The stored file could not be found. Support has been alerted.', 500); });
   const { createHash } = await import('node:crypto');
   if (createHash('sha256').update(buf).digest('hex') !== o.sha256) throw new AppError('integrity_failed', 'The stored file failed its integrity check. Support has been alerted.', 500);
@@ -132,5 +138,5 @@ export async function jobStatus(actor: Actor, jobId: string) {
   const r = await getPool().query(`select j.status, j.last_error, o.id as output_id, p.tenant_id, p.owner_user_id, p.org_id, p.visibility from jobs j join reservations rs on rs.id=j.reservation_id join quotes q on q.id=rs.quote_id join projects p on p.id=q.project_id left join outputs o on o.job_id=j.id where j.id=$1`, [jobId]);
   const row = r.rows[0];
   if (!row || !(await canReadProject(getPool(), actor, row))) throw new AppError('not_found', 'Job not found', 404);
-  return { status: row.status as string, outputId: row.output_id as string | null, message: row.status === 'failed' ? 'Processing failed. You have not been charged.' : null };
+  return { status: row.status as string, outputId: row.output_id as string | null, message: row.status === 'failed' ? 'Processing failed. You have not been charged.' : row.status === 'cancelled' && row.last_error?.startsWith('Not started in time') ? 'This job did not start in time, so it was cancelled and your funds were released. You can request a new price and try again.' : null };
 }

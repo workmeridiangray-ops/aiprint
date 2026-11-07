@@ -17,6 +17,6 @@ export default function Job({ params }: { params: Promise<{ id: string }> }) {
   return <main><h1>Your file</h1><p role="alert" className="err">{err}</p>
     {!s ? <p className="muted">Loading…</p> : <div className="card" aria-live="polite"><p><strong>{LABEL[s.status] ?? s.status}</strong></p>
       {s.message && <p>{s.message}</p>}
-      {s.outputId && <a href={`/api/outputs/${s.outputId}/download`}>Download PNG</a>}</div>}
+      {s.outputId && <button type="button" onClick={async () => { const r = await fetch(`/api/outputs/${s.outputId}/link`, { method: 'POST' }); const b = await r.json(); if (r.ok) location.href = b.url; else setErr(b.message); }}>Download</button>}</div>}
     <p><a href="/projects">Back to your artwork</a></p></main>;
 }

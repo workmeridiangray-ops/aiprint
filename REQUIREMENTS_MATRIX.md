@@ -167,7 +167,7 @@ Status is the weakest honest summary of the screens each group maps to.
 | F-07 | Editor and version management | Partial | Transforms, revision conflict; drag-move and resize handle built; no free crop rectangle, rotate handle or back side |
 | F-08 | Enhancement, bleed, export | Partial | Mirror bleed, PNG/JPG/TIFF/PDF, measured acceptance record; no enhancement integration; sRGB only, no CMYK |
 | F-09 | Quotes, reserves, processing | Partial | All built except payment capture |
-| F-10 | Paid output and retention | Partial | Retention, holds, warnings, purge; no watermarked preview, no signed short-lived link |
+| F-10 | Paid output and retention | Partial | Retention, holds, warnings, purge; no watermarked preview; signed 5-minute link built |
 | F-11 | Business workspace and caps | Partial | Org, members, shared credit, caps, concurrency; top-up blocked |
 | F-12 | Payments and credit ledger | Blocked | Append-only ledger built; no provider, no reconciliation |
 | F-13 | Refunds and corrections | Not started | Blocked on provider; no correction tool |
@@ -203,7 +203,7 @@ Status is the weakest honest summary of the screens each group maps to.
 | BE-01 | Domain invariants | Partial | FKs and tenancy checks; tests/security.test.ts |
 | BE-02 | Atomicity and idempotency | Partial | Advisory locks, unique keys; tests/business.test.ts, tests/projects-quotes.test.ts |
 | BE-03 | Durable jobs | Partial | Leases, reaper, 3 attempts; no heartbeat, no exhausted-retry review queue UI |
-| BE-04 | Reservation lifecycle | Partial | Quote expiry independent of held reservations; proposed 30-minute abandoned-hold expiry not found in code |
+| BE-04 | Reservation lifecycle | Partial | Quote expiry independent of held reservations; queued never-attempted jobs release their hold after HOLD_EXPIRY_MINUTES (default 30, proposed) via scheduler hold_expiry; running jobs keep holds; tests/downloads.test.ts. No age report for held-too-long running/unknown jobs |
 | BE-05 | Output integrity | Partial | Validate before publish, checksum stored; missing-file error surfaced |
 | BE-06 | Refund accounting | Not started | Blocked on provider |
 | BE-07 | Rate and storage controls | Partial | Enquiry limits and lockout; no per-tenant dispatch fairness, upload throttle or storage quota |

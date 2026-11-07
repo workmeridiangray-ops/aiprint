@@ -1,3 +1,4 @@
+import { audit } from './identity';
 import { getPool, tx, AppError } from './db';
 import type { Actor } from './auth';
 import { require as authorize } from './policy';
@@ -89,6 +90,20 @@ export async function cancelBeforeDispatch(actor: Actor, jobId: string) {
     await c.query("update jobs set status='cancelled' where id=$1", [jobId]);
     await c.query("update reservations set status='released', released_at=now() where id=$1 and status='held'", [j.reservation_id]);
     return { status: 'cancelled' };
+  });
+}
+/** BE-04: a hold whose job was never picked up is released after HOLD_EXPIRY_MINUTES (default 30, a proposed value awaiting client confirmation).
+ *  Only jobs still 'queued' with zero attempts are touched; running or unknown jobs keep their hold. Nothing was charged, so nothing is refunded. */
+export async function expireUndispatchedHolds(maxAgeMinutes = Number(process.env.HOLD_EXPIRY_MINUTES ?? 30)) {
+  if (!(maxAgeMinutes > 0)) throw new Error('HOLD_EXPIRY_MINUTES must be positive');
+  return tx(async c => {
+    const r = await c.query(`select j.id, j.reservation_id, j.tenant_id from jobs j where j.status='queued' and j.attempts=0 and j.created_at < now() - ($1 || ' minutes')::interval for update skip locked`, [String(maxAgeMinutes)]);
+    for (const j of r.rows) {
+      await c.query("update jobs set status='cancelled', last_error='Not started in time; hold released' where id=$1", [j.id]);
+      await c.query("update reservations set status='released', released_at=now() where id=$1 and status='held'", [j.reservation_id]);
+      await audit(c, { tenant: j.tenant_id, action: 'job.hold_expired', type: 'job', id: j.id, outcome: 'released' });
+    }
+    return { released: r.rows.length };
   });
 }
 export { getPool };

@@ -8,7 +8,7 @@ Updated: 2026-11-07. Spec baseline: R3 (MG-ARTWORK-2026-1107-R3), ₹12.5 lakh b
 - Decisions: scrypt password hashing; opaque session tokens stored hashed; tenant context resolved from an unrevoked membership, never trusted from the client; ledgers are integer paise, append-only (DB trigger), idempotent by key.
 - The separate physical-printing Framer project was never accessed. The 75-surface Framer design for this product lives in a different (Framer) project and was not used as a source here.
 
-## Implemented and tested (184 automated tests, real PostgreSQL)
+## Implemented and tested (188 automated tests, real PostgreSQL)
 - Sign-in/out, session expiry, revoked membership, duplicate/weak credentials. Origin check on mutating API calls.
 - Deny-by-default policy; tenant + owner isolation for projects, files, quotes; not-found instead of forbidden to prevent ID probing.
 - Upload inspection: JPG/PNG only, 25 MB, 40 MP, truncated/corrupt rejected, embedded vs untagged profile reported.
@@ -33,7 +33,7 @@ Updated: 2026-11-07. Spec baseline: R3 (MG-ARTWORK-2026-1107-R3), ₹12.5 lakh b
 - Explicit dev seed (`npm run seed:dev`) refuses staging/production.
 
 ## Verified by running
-- `npm test` → 16 files, 184 tests pass. `npm run typecheck` clean. `next build` succeeds.
+- `npm test` → 17 files, 188 tests pass. `npm run typecheck` clean. `next build` succeeds.
 - Live HTTP smoke against `next start`: no cookie 401, bad origin 403, wrong password 401, login → create project → upload → save → stale save conflict → quote → reserve all returned expected results. The browser UI was **not** driven in a real browser yet.
 
 ## Not built (see REQUIREMENTS_MATRIX.md for per-ID status)
@@ -62,6 +62,11 @@ Matrix refreshed against the code: 12 stale rows corrected (MFA, profile/securit
 
 ## Editor handles (Part 15)
 Canvas drag-to-move and a corner resize handle (kept on-canvas so it can always be grabbed), one undo step per gesture, saved through the same revision-token path. Browser check `tests/e2e/editor-drag.cjs`: 60 px / 30 px drag gave 17.95 / 8.98 mm offsets (correct at the preview scale), survived reload, undo restored scale. The check caught a real bug (focus scrolled the page mid-drag and corrupted the vertical offset); fixed with `preventScroll`. Not tested on a touch device. No unit test (pointer logic lives in the page).
+
+## Download links and hold expiry (Part 16)
+- Downloads now need a signed link from `POST /api/outputs/[id]/link` (5 minutes, bound to the signed-in user and the output, HMAC with DOWNLOAD_LINK_SECRET; required in staging/production). Every use re-checks access, removal and retention. A leaked link is useless to another user and to anyone after 5 minutes. The file still streams through the app, not from storage directly.
+- `expireUndispatchedHolds`: scheduler task `hold_expiry` every 5 minutes cancels jobs still queued with zero attempts after HOLD_EXPIRY_MINUTES (default 30) and releases the hold; the customer sees why. This is a proposed number and an operational risk: if workers are down for 30 minutes, waiting jobs are cancelled (nothing charged). Confirm with the client.
+- Tests: 4 new (tests/downloads.test.ts). Browser: download through the link and 403 without token (tests/e2e/editor-flow.cjs).
 
 ## Next steps (in order)
 0. Organisation: profile form, per-person sharing, reassignment of removed members' projects, queued CSV exports, top-up (provider-blocked); the month boundary (IST) is my assumption: confirm with the client.

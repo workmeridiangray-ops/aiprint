@@ -3,11 +3,13 @@
 Processes (all from the same build): `web` (next start), `worker`, `scheduler`, `mailer`. Postgres is required; object storage must be `s3` in staging/production; Redis is optional (wake-ups only).
 
 ## Start / deploy
-1. Set environment (see `.env.example`). In staging/production the app fails closed rather than falling back: missing MFA_ENC_KEY, local storage, a non-https S3 endpoint, a missing email driver, or missing APP_URL each return an explicit error for the affected feature.
+1. Set environment (see `.env.example`). In staging/production the app fails closed rather than falling back: missing MFA_ENC_KEY, local storage, a non-https S3 endpoint, a missing email driver, missing DOWNLOAD_LINK_SECRET, or missing APP_URL each return an explicit error for the affected feature.
 2. `npm ci && npm run build`
 3. `npm run migrate` (forward-only; take a database backup first).
 4. Start web, worker (one or more), scheduler (exactly one), mailer (one or more; rows are leased).
 5. `npm run check:storage` must pass. Open `/admin` as platform owner: jobs queued/running/oldest, Redis, storage, last scheduler runs.
+
+- Scheduler task `hold_expiry` (every 5 minutes) cancels jobs that sat queued with no attempt for HOLD_EXPIRY_MINUTES (default 30) and releases their hold. If it fires often, workers are down or too slow: check the worker first.
 
 ## Daily checks (from /admin)
 - Oldest queued job age growing: worker down or stuck. Restart worker; the reaper requeues expired leases and fails a job after 3 attempts, releasing the hold.

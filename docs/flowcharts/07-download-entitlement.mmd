@@ -4,7 +4,8 @@ flowchart TD
   B --> W["Watermarked preview: NOT BUILT<br/>preview currently shown without watermark"]:::nb
   A --> C["Charge settled when the job finishes"]
   C --> D["Entitlement: this output file, this customer"]
-  D --> E["Download from Your files"]
+  D --> L["Request link: access, removal and retention checked<br/>signed link valid 5 minutes, bound to this user"]
+  L --> E["Download: link verified and access re-checked again"]
   E --> F["Download again while the file is kept: free, any number of times"]
   G["Customer changes the project"] --> H["New revision, new quote"]
   H --> I["New output is a new charge, old output stays as is"]
@@ -15,4 +16,4 @@ flowchart TD
   classDef built fill:#e3f1f1,stroke:#0f5f63,color:#14202b
 classDef nb fill:#f1f1f1,stroke:#8a8a8a,stroke-dasharray:5 3,color:#555
 classDef fail fill:#fdeaea,stroke:#b3261e,color:#14202b
-  class A,B,C,D,E,F,G,H,I,K built
+  class A,B,C,D,L,E,F,G,H,I,K built
