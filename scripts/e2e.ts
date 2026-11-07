@@ -28,10 +28,11 @@ process.on('exit', stopAll);
   if (process.env.E2E_BUILD === '1' || !fs.existsSync('.next/BUILD_ID')) sh('npx', ['next', 'build']);
   const results: [string, boolean, string][] = [];
   const phase = async (mfaRoles: string, scripts: [string, string[]][]) => {
-    const e = { ...env, MFA_REQUIRED_ROLES: mfaRoles }; if (mfaRoles === '') e.MFA_REQUIRED_ROLES = '';
+    spawnSync('fuser', ['-k', `${PORT}/tcp`]); await sleep(1000);
+    const e = { ...env, MFA_REQUIRED_ROLES: mfaRoles };
     const app = bg('npx', ['next', 'start', '-p', PORT], e); const worker = bg('npx', ['tsx', 'scripts/worker.ts'], e); await waitUp();
     for (const [name, args] of scripts) { const r = run('node', [`tests/e2e/${name}.cjs`, ...args], e); const ok = r.status === 0; results.push([name, ok, ok ? '' : (r.stdout + r.stderr).split('\n').slice(-12).join('\n')]); console.log(ok ? 'PASS' : 'FAIL', name); }
-    stop(app); stop(worker); await sleep(2500);
+    stop(app); stop(worker); await sleep(1500); spawnSync('fuser', ['-k', `${PORT}/tcp`]); await sleep(1500); // next-server can outlive its npx parent
   };
   const S = (n: string) => `${out}/${n}.png`;
   await phase('', [['public-site-flow', []], ['editor-flow', [sample]], ['editor-drag', [sample]], ['cmyk-flow', [sample, out]], ['library-flow', [S('library')]], ['vendor-counter-flow', [sample]],

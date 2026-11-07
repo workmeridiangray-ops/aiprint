@@ -14,12 +14,12 @@ const PAGES = ['/', '/software', '/services', '/how-it-works', '/plans', '/prici
   await p.goto(B + '/pricing'); console.log('/pricing empty:', (await p.locator('.card').innerText()));
   await p.goto(B + '/terms'); console.log('/terms empty:', (await p.locator('[role=status]').innerText()));
   // platform owner sets up direct store, price and a policy through the real API
-  const o = await b.newContext(); const op = await o.newPage(); await op.goto(B + '/login'); await op.fill('#email', 'dev.owner@example.test'); await op.fill('#password', 'dev-password-12345'); await op.click('button'); await op.waitForURL('**/projects');
+  const o = await b.newContext(); const op = await o.newPage(); await op.goto(B + '/login'); await op.fill('#email', 'dev.owner@example.test'); await op.fill('#password', 'dev-password-12345'); await op.click('button'); await op.waitForURL('**/admin');
   const post = (url, body) => op.evaluate(async ([u, b]) => { const r = await fetch(u, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) }); return [r.status, await r.json()]; }, [url, body]);
   const ds = await post('/api/platform/direct-store', { name: 'Direct Store', slug: 'direct-store' }); console.log('create direct store:', ds[0]);
   sql("insert into vendor_pricing(tenant_id,per_mp_paise,min_paise) values('" + ds[1].tenantId + "',800,2500)");
   const pol = await post('/api/platform/policies', { slug: 'terms', effectiveDate: '2026-12-01', body: 'First paragraph of the approved terms.\n\nSecond paragraph.', approvedByName: 'Test Approver' }); console.log('publish policy:', pol[0]);
-  console.log('support cannot publish:', (await (async () => { const s = await b.newContext(); const sp = await s.newPage(); await sp.goto(B + '/login'); await sp.fill('#email', 'dev.support@example.test'); await sp.fill('#password', 'dev-password-12345'); await sp.click('button'); await sp.waitForURL('**/projects');
+  console.log('support cannot publish:', (await (async () => { const s = await b.newContext(); const sp = await s.newPage(); await sp.goto(B + '/login'); await sp.fill('#email', 'dev.support@example.test'); await sp.fill('#password', 'dev-password-12345'); await sp.click('button'); await sp.waitForURL('**/admin');
     return sp.evaluate(async () => (await fetch('/api/platform/policies', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ slug: 'privacy', effectiveDate: '2026-12-01', body: 'x', approvedByName: 'y' }) })).status); })()));
   await audit('populated audit');
   await p.goto(B + '/pricing'); console.log('/pricing rows:', await p.locator('tbody tr').count(), '|', (await p.locator('tbody tr').nth(2).innerText()).replace(/\s+/g, ' '));
