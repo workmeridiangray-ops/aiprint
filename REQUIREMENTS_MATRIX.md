@@ -22,11 +22,11 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | SC-010 | Privacy | Not started | - | - | Not implemented |
 | SC-011 | Refund policy | Not started | - | - | Not implemented |
 | SC-012 | File and acceptable-use policy | Not started | - | - | Not implemented |
-| SC-013 | Register | Not started | - | - | Not implemented |
-| SC-014 | Verify email | Not started | - | - | Not implemented |
-| SC-015 | Sign in and reset | Partial | /login, POST /api/auth/login|logout | tests/security.test.ts (authentication) | Password reset, email verification and MFA not built; no login rate limiting yet |
+| SC-013 | Register | Partial | POST /api/auth/register (no page yet) | tests/identity.test.ts | No register page; no public tenant resolution; email sender not wired (outbox only) |
+| SC-014 | Verify email | Partial | /verify, POST /api/auth/verify-email | tests/identity.test.ts | Email delivery adapter not built |
+| SC-015 | Sign in and reset | Partial | /login, /forgot, /reset; /api/auth/* | tests/security.test.ts, tests/identity.test.ts | MFA not built; no login rate limiting |
 | SC-016 | Second factor and recovery | Not started | - | - | Not implemented |
-| SC-017 | Invite acceptance | Not started | - | - | Not implemented |
+| SC-017 | Invite acceptance | Partial | POST /api/auth/accept-invite (no page yet), POST /api/members/invite | tests/identity.test.ts | No invite page or staff list UI |
 | SC-018 | Workspace selection | Not started | - | - | Not implemented |
 | SC-019 | Session and access states | Partial | API 401/403/404 mapping; /projects redirects to /login | tests/security.test.ts; HTTP smoke 401/403 | No dedicated expired-session/suspended/over-quota screens |
 | SC-020 | Vendor onboarding | Not started | - | - | Not implemented |
@@ -34,7 +34,7 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | SC-022 | Subscription checkout and history | Not started | - | - | Not implemented |
 | SC-023 | Vendor overview | Not started | - | - | Not implemented |
 | SC-024 | Customers and customer detail | Not started | - | - | Not implemented |
-| SC-025 | Vendor staff and roles | Not started | - | - | Not implemented |
+| SC-025 | Vendor staff and roles | Partial | POST /api/members/[id]/revoke | tests/identity.test.ts (last-admin, cross-tenant) | No staff UI, no role edit, no seat limits |
 | SC-026 | Service retail prices | Not started | - | - | Not implemented |
 | SC-027 | Counter project | Not started | - | - | Not implemented |
 | SC-028 | Counter payment and receipt | Not started | - | - | Not implemented |
@@ -118,7 +118,7 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | AT-26 | Search counts/suggestions/CSV obey record scope; formula-leading export values escaped; restricted b | Not started | No test |
 | AT-27 | Complete clean build, deploy and recovery steps work from handover; production secrets absent from r | Not started | No test |
 | AT-28 | Public 12 page types, policies, enquiry success/failure and technical SEO controls present; no test  | Not started | No test |
-| AT-29 | Invite/reset token expiry and reuse denied; last tenant/business/platform admin cannot be removed wi | Not started | No test |
+| AT-29 | Invite/reset token expiry and reuse denied; last tenant/business/platform admin cannot be removed wi | Partial | Token expiry/reuse and last-admin tested for vendor tenants. Business/platform admins and MFA recovery not built |
 | AT-30 | Ticket escalation preserves references, hides internal notes and requires accountable owner plus clo | Not started | No test |
 
 ## Workflows WF-01–WF-24

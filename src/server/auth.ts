@@ -18,7 +18,7 @@ const sha = (t: string) => createHash('sha256').update(t).digest('hex');
 export async function createUser(email: string, password: string, tenantId: string, role: string) {
   if (password.length < 12) throw new AppError('weak_password', 'Password must be at least 12 characters');
   const p = getPool();
-  const u = await p.query('insert into users(email,password_hash) values($1,$2) returning id', [email.trim(), hashPassword(password)])
+  const u = await p.query('insert into users(email,password_hash,email_verified_at) values($1,$2,now()) returning id', [email.trim(), hashPassword(password)])
     .catch(e => { if (e.code === '23505') throw new AppError('email_taken', 'Email already registered', 409); throw e; });
   await p.query('insert into memberships(tenant_id,user_id,role) values($1,$2,$3)', [tenantId, u.rows[0].id, role]);
   return u.rows[0].id as string;
@@ -26,7 +26,7 @@ export async function createUser(email: string, password: string, tenantId: stri
 
 export async function login(email: string, password: string) {
   const p = getPool();
-  const r = await p.query("select id,password_hash from users where lower(email)=lower($1) and status='active'", [email.trim()]);
+  const r = await p.query("select id,password_hash from users where lower(email)=lower($1) and status='active' and email_verified_at is not null", [email.trim()]);
   const ok = r.rowCount ? verifyPassword(password, r.rows[0].password_hash) : (verifyPassword(password, 'scrypt$00$00'), false);
   if (!ok) throw new AppError('invalid_credentials', 'Email or password is incorrect', 401);
   const token = randomBytes(32).toString('base64url');

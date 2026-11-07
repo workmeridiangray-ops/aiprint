@@ -8,14 +8,15 @@ Updated: 2026-11-07. Spec baseline: R3 (MG-ARTWORK-2026-1107-R3), ₹12.5 lakh b
 - Decisions: scrypt password hashing; opaque session tokens stored hashed; tenant context resolved from an unrevoked membership, never trusted from the client; ledgers are integer paise, append-only (DB trigger), idempotent by key.
 - The separate physical-printing Framer project was never accessed. The 75-surface Framer design for this product lives in a different (Framer) project and was not used as a source here.
 
-## Implemented and tested (29 automated tests, real PostgreSQL)
+## Implemented and tested (39 automated tests, real PostgreSQL)
 - Sign-in/out, session expiry, revoked membership, duplicate/weak credentials. Origin check on mutating API calls.
 - Deny-by-default policy; tenant + owner isolation for projects, files, quotes; not-found instead of forbidden to prevent ID probing.
 - Upload inspection: JPG/PNG only, 25 MB, 40 MP, truncated/corrupt rejected, embedded vs untagged profile reported.
 - Settings validation: 500 mm per side, 80 MP including bleed.
 - Projects with revision-checked, server-confirmed saves; concurrent same-revision saves: one wins.
 - Quote (15 min expiry, stale-on-change), atomic reservation of customer credit and vendor processing credit, idempotent reserve, cancel-before-dispatch release, running job keeps hold; 20-way concurrency tests for both ledgers.
-- UI: login, project list, editor (numeric settings, upload, autosave status, conflict banner, quote, reserve).
+- Identity: registration with email verification (login blocked until verified), password reset (1 h, single-use, newer request voids older, ends sessions), staff invites (7 days, single-use, cannot take over an existing account), last-admin protection under concurrency, audit rows for these actions. Emails go to `email_outbox`; **no sender is wired**, so nothing is actually delivered yet.
+- UI: login, forgot/reset/verify pages, project list, editor (numeric settings, upload, autosave status, conflict banner, quote, reserve).
 - Explicit dev seed (`npm run seed:dev`) refuses staging/production.
 
 ## Verified by running
@@ -36,8 +37,8 @@ Public website (SC-001–012), registration/verification/reset/MFA/invites, vend
 - R3 PDF and markdown not diffed in this pass. DEV/PM/FE/BE groups and Annexes C–K not yet mapped.
 
 ## Next steps (in order)
-1. Registration, email verification, reset, invites, last-admin protection (SC-013–019, AT-29).
-2. Audit log writes on every state change (table exists, unused).
+1. Email sender adapter (fails closed in production), register/invite pages, MFA + recovery, login rate limiting.
+2. Audit log writes on the remaining state changes (projects, quotes, reservations).
 3. Worker + transactional outbox + job leases, then output engine and validation (SC-043–045, AT-05/09/10).
 4. Versioned pricing and plans; vendor credit top-up UI once provider is chosen.
 5. Real-browser tests; Mermaid diagrams; runbooks.
