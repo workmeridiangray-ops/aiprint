@@ -1,5 +1,7 @@
 import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
-import { getPool, AppError } from './db';
+import { getPool, tx, AppError } from './db';
+import { sha, issueSession } from './sessions';
+import { keys, lockKey, assertNotLocked, recordFailure, createChallenge, requiredRoles } from './mfa';
 
 export function hashPassword(pw: string): string {
   const salt = randomBytes(16);
@@ -13,7 +15,6 @@ export function verifyPassword(pw: string, stored: string): boolean {
   const want = Buffer.from(h, 'hex');
   return calc.length === want.length && timingSafeEqual(calc, want);
 }
-const sha = (t: string) => createHash('sha256').update(t).digest('hex');
 
 export async function createUser(email: string, password: string, tenantId: string, role: string) {
   if (password.length < 12) throw new AppError('weak_password', 'Password must be at least 12 characters');
@@ -24,26 +25,37 @@ export async function createUser(email: string, password: string, tenantId: stri
   return u.rows[0].id as string;
 }
 
-export async function login(email: string, password: string) {
-  const p = getPool();
-  const r = await p.query("select id,password_hash from users where lower(email)=lower($1) and status='active' and email_verified_at is not null", [email.trim()]);
-  const ok = r.rowCount ? verifyPassword(password, r.rows[0].password_hash) : (verifyPassword(password, 'scrypt$00$00'), false);
-  if (!ok) throw new AppError('invalid_credentials', 'Email or password is incorrect', 401);
-  const token = randomBytes(32).toString('base64url');
-  const ttl = Number(process.env.SESSION_TTL_HOURS ?? 12);
-  await p.query("insert into sessions(token_hash,user_id,expires_at) values($1,$2, now() + ($3 || ' hours')::interval)", [sha(token), r.rows[0].id, String(ttl)]);
-  return { token, userId: r.rows[0].id as string };
+/** Password step. Failed attempts are counted per email and per source (the same answer whether or not the account exists), and a locked
+ *  email gets no password check at all. If the user has two-step sign-in on, only a short-lived challenge is returned, never a session. */
+export async function login(email: string, password: string, source = 'unknown'): Promise<{ token?: string; challenge?: string; enrolOnly?: boolean; userId: string }> {
+  const k = keys(email, source);
+  const out = await tx(async c => {
+    await lockKey(c, k); await assertNotLocked(c, k);
+    const r = await c.query("select id,password_hash,mfa_enabled_at from users where lower(email)=lower($1) and status='active' and email_verified_at is not null", [email.trim()]);
+    const ok = r.rowCount ? verifyPassword(password, r.rows[0].password_hash) : (verifyPassword(password, 'scrypt$00$00'), false);
+    if (!ok) { await recordFailure(c, k); return null; } // commit the failure, reject below
+    const u = r.rows[0];
+    // With two-step on, a correct password must NOT clear the count: otherwise a stolen password could farm unlimited code guesses.
+    if (u.mfa_enabled_at) return { userId: u.id as string, challenge: await createChallenge(c, u.id), enrolOnly: false, needsSession: false };
+    await c.query('delete from login_failures where email_key=$1', [k.email]);
+    const roles = (await c.query("select role from memberships where user_id=$1 and revoked_at is null", [u.id])).rows.map(x => x.role as string);
+    return { userId: u.id as string, challenge: undefined, enrolOnly: roles.some(x => requiredRoles().includes(x)), needsSession: true };
+  });
+  if (!out) throw new AppError('invalid_credentials', 'Email or password is incorrect', 401);
+  if (out.challenge) return { challenge: out.challenge, userId: out.userId };
+  return { token: await issueSession(out.userId, out.enrolOnly), enrolOnly: out.enrolOnly, userId: out.userId };
 }
 
 export type Actor = { userId: string; tenantId: string; role: string };
 
 /** Resolves the session AND the tenant context from an active membership. Tenant is never taken from client claims alone:
  *  the requested tenant must match an unrevoked membership of this user. */
-export async function resolveActor(token: string | undefined, requestedTenantId: string | undefined): Promise<Actor> {
+export async function resolveActor(token: string | undefined, requestedTenantId: string | undefined, opts: { allowEnrolOnly?: boolean } = {}): Promise<Actor> {
   if (!token) throw new AppError('unauthenticated', 'Sign in required', 401);
   const p = getPool();
-  const s = await p.query('select user_id from sessions where token_hash=$1 and expires_at>now()', [sha(token)]);
+  const s = await p.query('select s.user_id, (s.enrol_only and u.mfa_enabled_at is null) as enrol_only from sessions s join users u on u.id=s.user_id where s.token_hash=$1 and s.expires_at>now() and u.status=\'active\'', [sha(token)]);
   if (!s.rowCount) throw new AppError('session_expired', 'Session expired', 401);
+  if (s.rows[0].enrol_only && !opts.allowEnrolOnly) throw new AppError('mfa_enrolment_required', 'Set up two-step sign-in to continue', 403);
   const m = await p.query(
     `select tenant_id, role from memberships m join tenants t on t.id=m.tenant_id
      where m.user_id=$1 and m.revoked_at is null and t.status='active' and ($2::uuid is null or m.tenant_id=$2::uuid)

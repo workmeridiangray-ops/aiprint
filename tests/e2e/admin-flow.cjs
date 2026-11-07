@@ -1,3 +1,4 @@
+// Run against a server started with MFA_REQUIRED_ROLES= (empty) and with dev.owner/dev.support not enrolled (tests/e2e/mfa-flow.cjs cleans up after itself).
 // Manual browser check. Needs dev DB with platform users (tests/e2e/mkplatform.mts) and a server on :3113.
 const { chromium } = require('playwright');
 (async () => {

@@ -6,7 +6,7 @@ import { activateSubscription } from '../src/server/vendor';
 
 export const TEST_URL = process.env.TEST_DATABASE_URL ?? 'postgres://artwork:artwork_dev@localhost:5432/artwork_test';
 export async function setupDb() {
-  process.env.DATABASE_URL = TEST_URL; process.env.APP_ENV = 'test'; process.env.STORAGE_LOCAL_DIR = './.data/test-files';
+  process.env.DATABASE_URL = TEST_URL; process.env.APP_ENV = 'test'; process.env.MFA_REQUIRED_ROLES = ''; process.env.STORAGE_LOCAL_DIR = './.data/test-files';
   await closePool();
   const p = getPool();
   await p.query('drop schema public cascade; create schema public;');

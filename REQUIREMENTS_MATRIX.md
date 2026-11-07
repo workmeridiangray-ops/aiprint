@@ -24,7 +24,7 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | SC-012 | File and acceptable-use policy | Partial | /acceptable-use (reads policies table) | tests/public.test.ts; tests/e2e/public-site-flow.cjs (Playwright, 2026-11-07) | Same; approved text outstanding |
 | SC-013 | Register | Partial | /register?store=slug; POST /api/auth/register (tenant resolved server-side) | tests/identity.test.ts; public-site-flow.cjs | No vendor-branded register page beyond the store landing |
 | SC-014 | Verify email | Partial | /verify, POST /api/auth/verify-email | tests/identity.test.ts | Email delivery adapter not built |
-| SC-015 | Sign in and reset | Partial | /login, /forgot, /reset; /api/auth/* | tests/security.test.ts, tests/identity.test.ts | MFA not built; no login rate limiting |
+| SC-015 | Sign in and reset | Partial | /login (password then code), /forgot, /reset, /account/security; /api/auth/* incl. mfa/*; lockout 5 failures per email and 30 per source per 15 min; TOTP + 10 single-use recovery codes; assisted reset by another admin (reason, audit, sign-out, notice); platform roles must enrol | tests/mfa.test.ts, tests/security.test.ts, tests/identity.test.ts; tests/e2e/mfa-flow.cjs (Playwright, 2026-11-07) | Which roles need MFA, lockout numbers and recovery wording are my assumptions, not in R3 text. Source IP comes from x-forwarded-for (needs a trusted proxy). No SMS/email second factor. Lockout notices and the reset/recovery emails are only queued (no sender)
 | SC-016 | Second factor and recovery | Not started | - | - | Not implemented |
 | SC-017 | Invite acceptance | Partial | POST /api/auth/accept-invite (no page yet), POST /api/members/invite | tests/identity.test.ts | No invite page or staff list UI |
 | SC-018 | Workspace selection | Partial | /store/[slug] landing with vendor name and accent colour | tests/public.test.ts; tests/e2e/public-site-flow.cjs (Playwright, 2026-11-07) | No workspace chooser for users with several workspaces |
@@ -118,7 +118,7 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | AT-26 | Search counts/suggestions/CSV obey record scope; formula-leading export values escaped; restricted b | Partial | CSV formula-leading values neutralised and export is admin-scoped and audited. Search suggestions/counts and queued exports not built |
 | AT-27 | Complete clean build, deploy and recovery steps work from handover; production secrets absent from r | Not started | No test |
 | AT-28 | Public 12 page types, policies, enquiry success/failure and technical SEO controls present; no test  | Partial | 12 public pages, technical SEO (titles, descriptions, sitemap, robots), enquiry success and failure tested in a browser. Policy text and client copy review outstanding; no test/fabricated data shown |
-| AT-29 | Invite/reset token expiry and reuse denied; last tenant/business/platform admin cannot be removed wi | Partial | Token expiry/reuse and last-admin tested for vendor tenants. Business/platform admins and MFA recovery not built |
+| AT-29 | Invite/reset token expiry and reuse denied; last tenant/business/platform admin cannot be removed wi | Partial | Token expiry/reuse and last-admin tested for vendor tenants. MFA recovery tested (assisted reset: self-reset refused, cross-tenant refused, reason required, sessions revoked). Business/platform last-admin protection still not built |
 | AT-30 | Ticket escalation preserves references, hides internal notes and requires accountable owner plus clo | Not started | No test |
 
 ## Workflows WF-01–WF-24

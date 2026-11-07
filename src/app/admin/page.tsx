@@ -21,7 +21,7 @@ export default function Admin() {
   async function act(fn: () => Promise<unknown>, ok: string) { setMsg(''); setErr(''); try { await fn(); setMsg(ok); await load(); } catch (e: any) { if (e.message !== 'auth') setErr(e.message); } }
   const form = (fn: (f: FormData) => Promise<unknown>, ok: string) => (e: React.FormEvent<HTMLFormElement>) => { e.preventDefault(); const f = new FormData(e.currentTarget); act(() => fn(f), ok); };
   const owner = ov?.canEditSettings;
-  return <main><h1>Platform administration</h1><p role="status" className="muted">{msg}</p><p role="alert" className="err">{err}</p>
+  return <main><h1>Platform administration</h1><p><a href="/account/security">Account security</a></p><p role="status" className="muted">{msg}</p><p role="alert" className="err">{err}</p>
     {!ov && !err && <p className="muted">Loading…</p>}
     {ov && <>
       <section className="card"><h2>Enquiries</h2>
