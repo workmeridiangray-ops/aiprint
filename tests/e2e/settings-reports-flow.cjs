@@ -13,7 +13,7 @@ const { chromium } = require('playwright'); const { Client } = require('pg');
   await adm.waitForSelector('text=Saved as version 1'); check('first save is version 1', true);
   await adm.fill('#se', 'help@example.test'); await adm.click('button:has-text("Save")'); await adm.waitForSelector('text=Saved as version 2');
   await adm.waitForSelector('summary:has-text("Earlier versions")'); check('earlier versions listed', true);
-  await adm.fill('#be', 'not an email'); await adm.click('button:has-text("Save")'); await adm.waitForSelector('[role=alert]:has-text("billing email" i), [role=alert]:has-text("Billing email")'); check('bad email refused with a message', true);
+  await adm.fill('#be', 'not an email'); await adm.click('button:has-text("Save")'); await adm.waitForSelector('[role=alert]:has-text("Billing email")'); check('bad email refused with a message', true);
   await adm.screenshot({ path: out + '/settings.png', fullPage: true });
   // the flag is on, so counter staff would be asked to enrol: switch it off again to keep the other checks independent
   await adm.reload(); await adm.waitForSelector('#be'); await adm.uncheck('input[name=mfa]'); await adm.click('button:has-text("Save")'); await adm.waitForSelector('text=Saved as version 3');
