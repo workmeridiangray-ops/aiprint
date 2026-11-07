@@ -14,7 +14,7 @@ const Colour = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 export const GRACE_DAYS = 7; export const PERIOD_DAYS = 30;
 
 /* ---------- onboarding and branding ---------- */
-export async function createVendor(input: { email: string; password: string; businessName: string; slug: string }) {
+export async function createVendor(input: { email: string; password: string; businessName: string; slug: string; planId?: string }) {
   if (input.password.length < 12) throw new AppError('weak_password', 'Password must be at least 12 characters');
   const name = input.businessName.trim(); if (!name) throw new AppError('invalid_name', 'Business name is required');
   const slug = input.slug.trim().toLowerCase();
@@ -22,6 +22,7 @@ export async function createVendor(input: { email: string; password: string; bus
   return tx(async c => {
     if ((await c.query('select 1 from vendor_profiles where slug=$1', [slug])).rowCount) throw new AppError('slug_taken', 'That web address is taken', 409);
     if ((await c.query('select 1 from users where lower(email)=lower($1)', [input.email.trim()])).rowCount) return { status: 'verification_sent' as const }; // no enumeration; never attaches to an existing account
+    if (input.planId && !(await c.query('select 1 from plans where id=$1', [input.planId])).rowCount) throw new AppError('invalid_plan', 'That plan is not available');
     const t = await c.query("insert into tenants(kind,name,status) values('vendor',$1,'pending') returning id", [name]);
     await c.query('insert into vendor_profiles(tenant_id,display_name,slug) values($1,$2,$3)', [t.rows[0].id, name, slug]);
     const u = await c.query('insert into users(email,password_hash) values($1,$2) returning id', [input.email.trim(), hashPassword(input.password)]);
@@ -29,7 +30,7 @@ export async function createVendor(input: { email: string; password: string; bus
     const token = randomBytes(32).toString('base64url');
     await c.query("insert into auth_tokens(purpose,token_hash,user_id,tenant_id,expires_at) values('verify_email',$1,$2,$3, now() + interval '24 hours')", [sha(token), u.rows[0].id, t.rows[0].id]);
     await c.query("insert into email_outbox(to_email,template,body) values($1,'verify_email',$2)", [input.email.trim(), JSON.stringify({ token })]);
-    await c.query("insert into subscriptions(tenant_id,status) values($1,'pending')", [t.rows[0].id]);
+    await c.query("insert into subscriptions(tenant_id,status,scheduled_plan_id) values($1,'pending',$2)", [t.rows[0].id, input.planId ?? null]);
     await audit(c, { actor: u.rows[0].id, tenant: t.rows[0].id, action: 'vendor.register', outcome: 'ok' });
     return { status: 'verification_sent' as const };
   });

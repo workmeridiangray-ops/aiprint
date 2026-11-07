@@ -10,26 +10,26 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 
 | ID | Surface | Status | Route / component / API | Evidence | Gap |
 |---|---|---|---|---|---|
-| SC-001 | Home | Not started | - | - | Not implemented |
-| SC-002 | Software overview | Not started | - | - | Not implemented |
-| SC-003 | Services | Not started | - | - | Not implemented |
-| SC-004 | How it works | Not started | - | - | Not implemented |
-| SC-005 | Vendor plans | Not started | - | - | Not implemented |
-| SC-006 | Direct customer pricing | Not started | - | - | Not implemented |
-| SC-007 | FAQ | Not started | - | - | Not implemented |
-| SC-008 | Contact and enquiry | Not started | - | - | Not implemented |
-| SC-009 | Terms | Not started | - | - | Not implemented |
-| SC-010 | Privacy | Not started | - | - | Not implemented |
-| SC-011 | Refund policy | Not started | - | - | Not implemented |
-| SC-012 | File and acceptable-use policy | Not started | - | - | Not implemented |
-| SC-013 | Register | Partial | POST /api/auth/register (no page yet) | tests/identity.test.ts | No register page; no public tenant resolution; email sender not wired (outbox only) |
+| SC-001 | Home | Partial | / (src/app/(public)/page.tsx) | tests/public.test.ts; tests/e2e/public-site-flow.cjs (Playwright, 2026-11-07) | Audience routing built; direct store link appears only when a direct store exists. No imagery; copy is minimal and unreviewed by the client |
+| SC-002 | Software overview | Partial | /software | tests/public.test.ts; tests/e2e/public-site-flow.cjs (Playwright, 2026-11-07) | Copy states only implemented capabilities and limits; needs client review |
+| SC-003 | Services | Partial | /services | tests/public.test.ts; tests/e2e/public-site-flow.cjs (Playwright, 2026-11-07) | Single service; per-service enable/disable flag not modelled |
+| SC-004 | How it works | Partial | /how-it-works | tests/public.test.ts; tests/e2e/public-site-flow.cjs (Playwright, 2026-11-07) | Copy needs client review |
+| SC-005 | Vendor plans | Partial | /plans (real plans table), /vendor-signup?plan= | tests/public.test.ts; tests/e2e/public-site-flow.cjs (Playwright, 2026-11-07) | Tax display not shown (tax treatment undecided); storage/feature fields not modelled; server price revalidation happens at checkout, which is blocked on the provider |
+| SC-006 | Direct customer pricing | Partial | /pricing (direct store retail price) | tests/public.test.ts; tests/e2e/public-site-flow.cjs (Playwright, 2026-11-07) | No vendor cost or margin shown. Shows an honest empty state until a price is set |
+| SC-007 | FAQ | Partial | /faq | tests/public.test.ts; tests/e2e/public-site-flow.cjs (Playwright, 2026-11-07) | Static answers limited to enforced facts; no search box |
+| SC-008 | Contact and enquiry | Partial | /contact; POST /api/enquiries | tests/public.test.ts; tests/e2e/public-site-flow.cjs (Playwright, 2026-11-07) | Rate limits (5/h per source, 3/day per email), honeypot, consent record, reference; acknowledgement email only queued (no sender). Source address trust depends on deployment proxy |
+| SC-009 | Terms | Partial | /terms (reads policies table) | tests/public.test.ts; tests/e2e/public-site-flow.cjs (Playwright, 2026-11-07) | Shows "not published yet" until the owner publishes approved text; text itself must come from the client/legal |
+| SC-010 | Privacy | Partial | /privacy (reads policies table) | tests/public.test.ts; tests/e2e/public-site-flow.cjs (Playwright, 2026-11-07) | Same; approved text and a check that it matches actual retention are outstanding |
+| SC-011 | Refund policy | Partial | /refund-policy (reads policies table) | tests/public.test.ts; tests/e2e/public-site-flow.cjs (Playwright, 2026-11-07) | Same; approved text outstanding |
+| SC-012 | File and acceptable-use policy | Partial | /acceptable-use (reads policies table) | tests/public.test.ts; tests/e2e/public-site-flow.cjs (Playwright, 2026-11-07) | Same; approved text outstanding |
+| SC-013 | Register | Partial | /register?store=slug; POST /api/auth/register (tenant resolved server-side) | tests/identity.test.ts; public-site-flow.cjs | No vendor-branded register page beyond the store landing |
 | SC-014 | Verify email | Partial | /verify, POST /api/auth/verify-email | tests/identity.test.ts | Email delivery adapter not built |
 | SC-015 | Sign in and reset | Partial | /login, /forgot, /reset; /api/auth/* | tests/security.test.ts, tests/identity.test.ts | MFA not built; no login rate limiting |
 | SC-016 | Second factor and recovery | Not started | - | - | Not implemented |
 | SC-017 | Invite acceptance | Partial | POST /api/auth/accept-invite (no page yet), POST /api/members/invite | tests/identity.test.ts | No invite page or staff list UI |
-| SC-018 | Workspace selection | Not started | - | - | Not implemented |
+| SC-018 | Workspace selection | Partial | /store/[slug] landing with vendor name and accent colour | tests/public.test.ts; tests/e2e/public-site-flow.cjs (Playwright, 2026-11-07) | No workspace chooser for users with several workspaces |
 | SC-019 | Session and access states | Partial | API 401/403/404 mapping; /projects redirects to /login | tests/security.test.ts; HTTP smoke 401/403 | No dedicated expired-session/suspended/over-quota screens |
-| SC-020 | Vendor onboarding | Partial | POST /api/vendors (no page yet); pending tenant, subscription row | tests/vendor.test.ts | No onboarding page/checklist; pending vendor admin cannot reach branding/pricing before activation; no owner review step; checkout blocked on payment provider |
+| SC-020 | Vendor onboarding | Partial | /vendor-signup (plan reference, pending tenant) | tests/public.test.ts; public-site-flow.cjs | Pending vendor admin cannot yet reach branding/pricing; owner review step not built; checkout blocked on the provider |
 | SC-021 | Branding and portal setup | Partial | PATCH /api/vendor/branding; GET /api/portal/[slug] (public branding only); /vendor Branding | tests/vendor.test.ts; browser run | No logo upload; no portal page that applies branding; no website-entry widget |
 | SC-022 | Subscription checkout and history | Blocked | Subscription state machine; activateSubscription (internal, idempotent); scheduler.ts | tests/vendor.test.ts | Hosted checkout and verified payment events need the payment provider; no history UI; plan change is API only |
 | SC-023 | Vendor overview | Partial | /vendor overview; GET /api/vendor/overview | tests/vendor.test.ts; browser run | Basic counts only; no charts or date ranges |
@@ -84,7 +84,7 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | SC-072 | Service health and alerts | Not started | - | - | Not implemented |
 | SC-073 | Configuration and notifications | Not started | - | - | Not implemented |
 | SC-074 | Recovery and incident register | Not started | - | - | Not implemented |
-| SC-075 | Enquiry and closure queue | Not started | - | - | Not implemented |
+| SC-075 | Enquiry and closure queue | Partial | GET/PATCH /api/platform/enquiries (staff only; closing needs a note) | tests/public.test.ts | No staff screen for the queue; no internal notes/attachments/assignment UI |
 
 ## Acceptance scenarios AT-01â€“AT-30
 
@@ -117,7 +117,7 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | AT-25 | Self approval of financial adjustment/beneficiary/payout rejected; lost second factor recovered only | Not started | No test |
 | AT-26 | Search counts/suggestions/CSV obey record scope; formula-leading export values escaped; restricted b | Not started | No test |
 | AT-27 | Complete clean build, deploy and recovery steps work from handover; production secrets absent from r | Not started | No test |
-| AT-28 | Public 12 page types, policies, enquiry success/failure and technical SEO controls present; no test  | Not started | No test |
+| AT-28 | Public 12 page types, policies, enquiry success/failure and technical SEO controls present; no test  | Partial | 12 public pages, technical SEO (titles, descriptions, sitemap, robots), enquiry success and failure tested in a browser. Policy text and client copy review outstanding; no test/fabricated data shown |
 | AT-29 | Invite/reset token expiry and reuse denied; last tenant/business/platform admin cannot be removed wi | Partial | Token expiry/reuse and last-admin tested for vendor tenants. Business/platform admins and MFA recovery not built |
 | AT-30 | Ticket escalation preserves references, hides internal notes and requires accountable owner plus clo | Not started | No test |
 
@@ -127,7 +127,7 @@ All **Not started** except where noted: WF-03 (customer starts project: upload â
 
 | ID | Workflow | Status |
 |---|---|---|
-| WF-01 | Vendor registers; approved plan | Not started |
+| WF-01 | Vendor registers; approved plan | Partial |
 | WF-02 | Vendor invites staff; seat available | Partial |
 | WF-03 | Customer starts supported project | Partial |
 | WF-04 | Draft needs editing | Not started |
