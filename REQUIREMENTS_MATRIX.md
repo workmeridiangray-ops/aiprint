@@ -47,14 +47,14 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | SC-035 | Customer dashboard | Not started | - | - | Not implemented |
 | SC-036 | Project list | Partial | /projects, GET/POST /api/projects | HTTP smoke; build | Own projects only; no search, archive, business sharing |
 | SC-037 | Upload and setup | Partial | /projects/[id] file picker, POST /api/files | tests/security.test.ts (upload inspection) | Local-disk storage only; no malware scanning/quarantine workflow; no front/back second image; no preset list |
-| SC-038 | Inspection | Partial | Inspection message in editor; src/server/files.ts | tests/security.test.ts | No DPI warning, no profile conversion, only embedded/untagged flag |
-| SC-039 | Print editor | Partial | /projects/[id] numeric settings + server export engine (src/server/engine.ts) | tests/projects-quotes.test.ts, tests/worker.test.ts | No canvas preview/transform UI/undo; move/rotate not exposed in UI; no enhancement; no CMYK/ICC |
+| SC-038 | Inspection | Partial | Inspection message + effective-dpi warning in editor | tests/security.test.ts; tests/engine.test.ts; browser run | Untagged treated as sRGB; no profile conversion; no scan/quarantine |
+| SC-039 | Print editor | Partial | /projects/[id]: canvas preview (trim/bleed/safe guides), move/rotate/scale/fit/fill, numeric fields, arrow-key nudge, undo/redo, zoom, reset, presets; server engine + shared src/lib/geometry.ts | tests/engine.test.ts; Playwright run 2026-11-07 (tests/e2e/editor-flow.cjs) | No drag-to-move or crop handles, no back image, no alignment beyond centre, no enhancement, no CMYK/ICC; preview/export pixel parity not tested |
 | SC-040 | Version conflict | Partial | Conflict banner in editor; 409 revision_conflict returns current state | tests/projects-quotes.test.ts | No side-by-side resolve/save-as-copy flow |
 | SC-041 | Quote confirmation | Partial | Get price / Hold funds buttons; POST /api/projects/[id]/quote, /api/quotes/[id]/reserve | tests/projects-quotes.test.ts | Placeholder dev pricing, not versioned vendor/platform pricing config |
 | SC-042 | Customer credits and checkout | Blocked | Reservation against ledger only | tests/projects-quotes.test.ts | No payment/top-up: needs approved provider (not selected/credentialed). No fake success implemented |
 | SC-043 | Processing status | Partial | /jobs/[id]; GET /api/jobs/[id]; scripts/worker.ts | tests/worker.test.ts | Polling UI only; no failure-review queue UI; no cancel button |
-| SC-044 | Result preview | Partial | Download link on /jobs/[id] | tests/worker.test.ts | No preview image; PNG RGB only |
-| SC-045 | Downloads and versions | Partial | GET /api/outputs/[id]/download (owner, 90-day, checksum) | tests/worker.test.ts | No version list, no 7-day warning, no TIFF/PDF/JPG, no CMYK |
+| SC-044 | Result preview | Partial | Download link on /jobs/[id] | tests/worker.test.ts; browser run (PDF downloaded) | No result preview image |
+| SC-045 | Downloads and versions | Partial | GET /api/outputs/[id]/download; PNG, JPG, TIFF, PDF (RGB) | tests/engine.test.ts; tests/worker.test.ts | No CMYK, no version list, no 7-day warning |
 | SC-046 | Customer transactions | Not started | - | - | Not implemented |
 | SC-047 | Profile and security | Not started | - | - | Not implemented |
 | SC-048 | Account export and closure | Not started | - | - | Not implemented |
@@ -94,7 +94,7 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | AT-02 | Revoked staff membership loses new-request access; queued export checks permission again | Partial | Revoked membership loses access: tested. Queued-export recheck not built |
 | AT-03 | Finance can inspect charge references without gaining artwork access; customer never receives proces | Not started | No test |
 | AT-04 | Invalid/oversized/corrupt upload creates no executable source or paid operation; error explains corr | Partial | Format/size/pixel/corrupt checks tested. Quarantine/scan pipeline not built |
-| AT-05 | Approved colour/bleed/size samples export with expected dimensions/profile; RGB PNG/JPG never falsel | Not started | No test |
+| AT-05 | Approved colour/bleed/size samples export with expected dimensions/profile; RGB PNG/JPG never falsel | Partial | Dimensions, density, bleed mirroring, format validity tested with synthetic images. Approved client samples not supplied; CMYK not offered |
 | AT-06 | Two saves against one revision cannot silently overwrite; second sees conflict and can save a new pe | Covered (slice) | Concurrent and stale saves tested. UI second-save recovery is minimal |
 | AT-07 | Changed file/settings or expired quote cannot use stale accepted price; unchanged accepted running j | Partial | Stale and expired quotes tested. Running-job price retention untested (no worker) |
 | AT-08 | Concurrent requests against one remaining balance/cap cannot overspend; available/reserved/spent rec | Partial | Customer and vendor credit concurrency tested. Member caps not built |
