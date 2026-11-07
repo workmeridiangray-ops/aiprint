@@ -135,7 +135,8 @@ export async function readOutput(actor: Actor, outputId: string) {
   const o = await loadOutput(actor, outputId);
   const buf = await storage().get(o.storage_key).catch(() => { throw new AppError('file_missing', 'The stored file could not be found. Support has been alerted.', 500); });
   const { createHash } = await import('node:crypto');
-  if (createHash('sha256').update(buf).digest('hex') !== o.sha256) throw new AppError('integrity_failed', 'The stored file failed its integrity check. Support has been alerted.', 500);
+  if (createHash('sha256').update(buf).digest('hex') !== o.sha256) { await audit(getPool(), { actor: actor.userId, tenant: o.tenant_id, action: 'output.download', type: 'output', id: outputId, outcome: 'integrity_failed' }); throw new AppError('integrity_failed', 'The stored file failed its integrity check. Support has been alerted.', 500); }
+  await audit(getPool(), { actor: actor.userId, tenant: o.tenant_id, action: 'output.download', type: 'output', id: outputId, outcome: 'ok' });
   return { buf, format: o.format as string };
 }
 /** Watermarked preview: same access rules as the file (owner/organisation, retention) but it never carries the clean image. */

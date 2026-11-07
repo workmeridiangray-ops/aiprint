@@ -63,6 +63,14 @@ describe('processing', () => {
     await readOutput(x.u, out); await readOutput(x.u, out);
     expect((await getPool().query('select count(*)::int n from ledger_entries')).rows[0].n).toBe(n0);
   });
+  it('every successful download is audited with who and which file; a refused one is not logged as a success', async () => {
+    const x = await queued('w2a@x.test'); await workOnce('w-a');
+    const out = (await jobStatus(x.u, x.r.jobId)).outputId!;
+    const n = async () => (await getPool().query("select count(*)::int n from audit_log where action='output.download' and object_id=$1 and actor_user_id=$2 and outcome='ok'", [out, x.u.userId])).rows[0].n;
+    expect(await n()).toBe(0); await readOutput(x.u, out); await readOutput(x.u, out); expect(await n()).toBe(2);
+    const stranger = await mkActor(T, 'w2b-s@x.test'); await expect(readOutput(stranger, out)).rejects.toMatchObject({ code: 'not_found' });
+    expect((await getPool().query("select count(*)::int n from audit_log where action='output.download' and actor_user_id=$1", [stranger.userId])).rows[0].n).toBe(0);
+  });
   it('other users and tenants cannot download; expired outputs are refused', async () => {
     const x = await queued('w3@x.test'); await workOnce('w-a');
     const out = (await jobStatus(x.u, x.r.jobId)).outputId!;

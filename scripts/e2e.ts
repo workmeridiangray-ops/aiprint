@@ -36,7 +36,7 @@ process.on('exit', stopAll);
   };
   const S = (n: string) => `${out}/${n}.png`;
   await phase('', [['public-site-flow', []], ['editor-flow', [sample]], ['editor-drag', [sample]], ['cmyk-flow', [sample, out]], ['library-flow', [S('library')]], ['vendor-counter-flow', [sample]],
-    ['claims-flow', [sample, out]], ['business-flow', []], ['audit-customers-flow', [S('audit')]], ['admin-flow', [S('admin')]], ['support-flow', [S('support')]]]);
+    ['claims-flow', [sample, out]], ['business-flow', []], ['audit-customers-flow', [S('audit')]], ['admin-flow', [S('admin')]], ['support-flow', [S('support')]], ['settings-reports-flow', [out]]]);
   await phase('platform_owner,platform_support', [['mfa-flow', [S('mfa')]]]);
   stopAll();
   const bad = results.filter(r => !r[1]); console.log(`\n${results.length - bad.length}/${results.length} browser scripts passed`);
