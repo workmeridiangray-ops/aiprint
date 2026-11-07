@@ -137,3 +137,7 @@ Canvas drag-to-move and a corner resize handle (kept on-canvas so it can always 
 ## Part 26: vendor reports (SC-031)
 - src/server/vendorreports.ts, /vendor/reports, /api/vendor/reports/[kind] (JSON or ?format=csv). Admin and finance see five reports; staff activity is admin only. Dates are Indian dates; 5,000-row cap with a visible warning.
 - Tests: tests/vendorreports.test.ts (4). Not done: queued/background export (the spec says a queued export rechecks permission; mine is immediate and rechecks at that moment), browser run of the page, customer statements.
+
+## Part 27: one command for the browser checks
+- `npm run e2e` (scripts/e2e.ts): fresh artwork_e2e database, seed, platform users, app + worker, then 12 Playwright scripts in two phases (second phase uses default two-step rules for mfa-flow). First fully green run: 12/12. Env: E2E_BUILD=1 forces a build, E2E_OUT sets the screenshot folder, E2E_BASE overrides the URL inside a script.
+- The scripts check by waiting for expected screens; most print findings rather than assert them, so a pass means "no crash, no timeout", not every printed line verified. Not covered yet: /vendor/settings, closure screens, /vendor/reports.
