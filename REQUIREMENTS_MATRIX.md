@@ -4,7 +4,7 @@ Baseline: R3 (MG-ARTWORK-2026-1107-R3). IDs extracted from the editable source `
 
 Status key: **Partial** = some behaviour real and tested, gaps listed. **Blocked** = needs external approval/credentials. **Not started** = no code. Nothing here is production-ready.
 
-Totals: 75 surfaces; 10 partial/blocked, 65 not started.
+Totals (refreshed in the gap pass): 75 surfaces; 54 partial, 2 blocked, 19 not started. Every SC, AT and WF ID in the spec appears here; F, DEV, PM, FE, BE are now mapped. Partial is not complete.
 
 ## Surfaces SC-001–SC-075
 
@@ -25,7 +25,7 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | SC-013 | Register | Partial | /register?store=slug; POST /api/auth/register (tenant resolved server-side) | tests/identity.test.ts; public-site-flow.cjs | No vendor-branded register page beyond the store landing |
 | SC-014 | Verify email | Partial | /verify, POST /api/auth/verify-email | tests/identity.test.ts | Email delivery adapter not built |
 | SC-015 | Sign in and reset | Partial | /login (password then code), /forgot, /reset, /account/security; /api/auth/* incl. mfa/*; lockout 5 failures per email and 30 per source per 15 min; TOTP + 10 single-use recovery codes; assisted reset by another admin (reason, audit, sign-out, notice); platform roles must enrol | tests/mfa.test.ts, tests/security.test.ts, tests/identity.test.ts; tests/e2e/mfa-flow.cjs (Playwright, 2026-11-07) | Which roles need MFA, lockout numbers and recovery wording are my assumptions, not in R3 text. Source IP comes from x-forwarded-for (needs a trusted proxy). No SMS/email second factor. Emails (reset, recovery, MFA notices) are delivered by the mailer when configured; no lockout notice email
-| SC-016 | Second factor and recovery | Not started | - | - | Not implemented |
+| SC-016 | Second factor and recovery | Partial | /login code step; /account/security (enrol, recovery codes, disable); /api/auth/mfa/* | tests/mfa.test.ts; tests/e2e/mfa-flow.cjs | TOTP and recovery codes only; no SMS/email factor; role list and limits are assumptions |
 | SC-017 | Invite acceptance | Partial | POST /api/auth/accept-invite (no page yet), POST /api/members/invite | tests/identity.test.ts | No invite page or staff list UI |
 | SC-018 | Workspace selection | Partial | /store/[slug] landing with vendor name and accent colour | tests/public.test.ts; tests/e2e/public-site-flow.cjs (Playwright, 2026-11-07) | No workspace chooser for users with several workspaces |
 | SC-019 | Session and access states | Partial | API 401/403/404 mapping; /projects redirects to /login | tests/security.test.ts; HTTP smoke 401/403 | No dedicated expired-session/suspended/over-quota screens |
@@ -44,7 +44,7 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | SC-032 | Vendor credits and top-up | Not started | - | - | Not implemented |
 | SC-033 | Vendor settlement statement | Not started | - | - | Not implemented |
 | SC-034 | Vendor settings and closure | Not started | - | - | Not implemented |
-| SC-035 | Customer dashboard | Not started | - | - | Not implemented |
+| SC-035 | Customer dashboard | Partial | /projects (projects list, create, links to files, help, security, data), /library | tests/projects-quotes.test.ts; tests/retention.test.ts | No balance, spend or recent-activity summary; no dedicated dashboard design |
 | SC-036 | Project list | Partial | /projects (own, organisation and shared-with-you projects; new project in organisation) | HTTP smoke; browser runs | No search/archive/pagination |
 | SC-037 | Upload and setup | Partial | /projects/[id] file picker, POST /api/files | tests/security.test.ts (upload inspection) | Local-disk storage only; no malware scanning/quarantine workflow; no front/back second image; no preset list |
 | SC-038 | Inspection | Partial | Inspection message + effective-dpi warning in editor | tests/security.test.ts; tests/engine.test.ts; browser run | Untagged treated as sRGB; no profile conversion; no scan/quarantine |
@@ -56,7 +56,7 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | SC-044 | Result preview | Partial | Download link on /jobs/[id] | tests/worker.test.ts; browser run (PDF downloaded) | No result preview image |
 | SC-045 | Downloads and versions | Partial | /library lists every finished file (state, days left), free re-download while retained, expired/removed shown clearly; GET /api/outputs/[id]/download | tests/retention.test.ts; tests/worker.test.ts; tests/e2e/library-flow.cjs (Playwright, 2026-11-07) | No CMYK; no per-project version cap/archive yet; each job produces one file, no version grouping |
 | SC-046 | Customer transactions | Partial | /library "Credit and charges" (own records only: held/charged/released, personal credit balance) | tests/retention.test.ts | No top-ups or refunds (payment provider blocked); organisation members see their own jobs only |
-| SC-047 | Profile and security | Not started | - | - | Not implemented |
+| SC-047 | Profile and security | Partial | /account/security (MFA, recovery codes) | tests/mfa.test.ts | No profile editing screen, no session list or revoke-other-sessions control |
 | SC-048 | Account export and closure | Partial | /account/data; /api/account/export, /api/account/closure; own-data JSON export (7-day link, owner-only, audited, staff notes excluded); closure blocked by running jobs, held funds, leftover credit, organisation admin; password (+code if two-step) re-check; access stops at once; files deleted after 7 days unless held; money, tickets, audit kept | tests/account.test.ts; tests/e2e/support-flow.cjs (Playwright, 2026-11-07) | Customer accounts only. A credit balance blocks closure and nothing can refund it yet (payments blocked). No reopen-by-owner approval, no business-admin export of org data, 7-day delay and 24 h export reuse are my assumptions |
 | SC-049 | Organisation profile | Partial | /business (create); PATCH /api/orgs/[id] | tests/business.test.ts; tests/e2e/business-flow.cjs (Playwright, 2026-11-07) | Profile edit has an API but no form on the page; billing contact stored only; store context implicit (one store per organisation) |
 | SC-050 | Members and sharing | Partial | /business members table, invite, remove, make admin; /business/join; project share checkbox in editor; POST /api/orgs/[id]/invite|transfer, DELETE /api/orgs/[id]/members/[mid], PATCH /api/projects/[id]/visibility | tests/business.test.ts; tests/e2e/business-flow.cjs (Playwright, 2026-11-07) | Sharing is whole-organisation read-only (no per-person sharing); no invite resend/revoke UI; no reassignment of a removed member's organisation projects (they become inaccessible; admin sees charges only) |
@@ -64,14 +64,14 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | SC-052 | Business usage report | Partial | /business usage table; GET /api/orgs/[id]/usage[?format=csv] (admin only, audited, formula-safe) | tests/business.test.ts; tests/e2e/business-flow.cjs (Playwright, 2026-11-07) | CSV is generated synchronously, not as a queued export with permission recheck; no date/member filter controls in the UI; no pagination (5000-row cap) |
 | SC-053 | Ticket list and create | Partial | /support; POST /api/support; links only to records the requester can read; categories; role-scoped list | tests/support.test.ts; tests/e2e/support-flow.cjs | No attachments. No filters beyond status in the API |
 | SC-054 | Ticket detail and escalation | Partial | /support/[id]; reply, staff note, assign, escalate (reason + named platform owner), resolve (resolution + evidence), reopen, close; auto-close after 7 days | tests/support.test.ts; tests/e2e/support-flow.cjs | No attachments or evidence upload; evidence is text. Reopen window (14 days) and limit (3) are my assumptions |
-| SC-055 | Platform overview | Not started | - | - | Not implemented |
+| SC-055 | Platform overview | Partial | /admin; GET /api/platform/overview (staff only) | tests/admin.test.ts; tests/e2e/admin-flow.cjs | Counts only; no trends, alerts or tenant drill-down; no artwork, balances or policy text shown by design |
 | SC-056 | Tenant list and review | Not started | - | - | Not implemented |
 | SC-057 | Direct store workspace | Not started | - | - | Not implemented |
 | SC-058 | Platform customers | Not started | - | - | Not implemented |
 | SC-059 | Platform staff permissions | Not started | - | - | Not implemented |
 | SC-060 | Plans and quotas | Partial | createPlan (immutable versions), POST /api/platform/plans | tests/vendor.test.ts | No platform UI; no quotas beyond staff seats; storage/job quotas not enforced |
 | SC-061 | Global processing prices | Partial | setPlatformPricing, POST /api/platform/pricing | tests/vendor.test.ts | No UI |
-| SC-062 | Jobs and job detail | Not started | - | - | Not implemented |
+| SC-062 | Jobs and job detail | Partial | /jobs/[id] (customer job status); /admin job counts and oldest age | tests/worker.test.ts; tests/admin.test.ts | No staff job list or job detail screen, no retry or review queue UI |
 | SC-063 | Payments and reconciliation | Not started | - | - | Not implemented |
 | SC-064 | Credit ledgers | Not started | - | - | Not implemented |
 | SC-065 | Credit adjustment approval | Not started | - | - | Not implemented |
@@ -81,7 +81,7 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | SC-069 | Financial exception detail | Not started | - | - | Not implemented |
 | SC-070 | Audit search | Not started | - | - | Not implemented |
 | SC-071 | Retention and deletion requests | Partial | Customer delete (links stop at once; live copy purged by the next run); staff holds; metadata and ledger kept; "Deleting my files or data" ticket category; account closure purge | tests/retention.test.ts; tests/account.test.ts | No purge of temporary processing files; no deletion for already-shared org copies beyond owner |
-| SC-072 | Service health and alerts | Not started | - | - | Not implemented |
+| SC-072 | Service health and alerts | Partial | /admin health: jobs, Redis, storage, scheduler last runs | tests/admin.test.ts; tests/queue.test.ts | No alerting, no backup-failure or callback panels |
 | SC-073 | Configuration and notifications | Not started | - | - | Not implemented |
 | SC-074 | Recovery and incident register | Not started | - | - | Not implemented |
 | SC-075 | Enquiry and closure queue | Partial | GET/PATCH /api/platform/enquiries (staff only; closing needs a note) | tests/public.test.ts | No staff screen for the queue; no internal notes/attachments/assignment UI |
@@ -123,7 +123,7 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 
 ## Workflows WF-01–WF-24
 
-All **Not started** except where noted: WF-03 (customer starts project: upload → inspect → save draft) is **Partial**.
+Status refreshed in the Part 14 gap pass against the code. **Partial** = real tested behaviour with gaps; **Blocked** = needs the payment provider; **Not started** = no code.
 
 | ID | Workflow | Status |
 |---|---|---|
@@ -152,9 +152,64 @@ All **Not started** except where noted: WF-03 (customer starts project: upload �
 | WF-23 | Retention job | Partial (scripts/scheduler.ts runs it hourly; last run and failures in job_runs; storage deletion works on local and S3 drivers, tests/storage.test.ts) |
 | WF-24 | Incident/restore | Not started |
 
-## Requirement groups DEV / PM / FE / BE and Annexes C–K
+## Feature groups F-01–F-18 (R3 section 25 mapping)
 
-Not yet mapped one by one. The groups have not been extracted from R3 in this pass; do that before claiming coverage. Open item in IMPLEMENTATION_STATUS.md.
+Status is the weakest honest summary of the screens each group maps to.
+
+| ID | Group | Status | Notes |
+|---|---|---|---|
+| F-01 | Public acquisition and enquiry | Partial | 12 public pages and validated enquiry built; copy and policy text unapproved |
+| F-02 | Identity, sessions, recovery | Partial | Verify, reset, invite, TOTP, recovery codes, lockout, workspace via membership; no workspace chooser, no session list |
+| F-03 | Vendor activation and branding | Partial | Self-signup, scoped portal, store landing, accent colour; activation by verified payment blocked; website-entry integration not built |
+| F-04 | Subscriptions and plan changes | Partial | Lifecycle, grace, expiry, reminders; verified renewal blocked on provider |
+| F-05 | Customer and counter management | Partial | Counter customers and external receipt; customer list screen (SC-024) and verified claim (SC-030) not built |
+| F-06 | Upload and print inspection | Partial | Byte inspection, limits, DPI warning; no malware scan |
+| F-07 | Editor and version management | Partial | Transforms, revision conflict; no drag/crop handles or back side |
+| F-08 | Enhancement, bleed, export | Partial | Mirror bleed, PNG/JPG/TIFF/PDF, measured acceptance record; no enhancement integration; sRGB only, no CMYK |
+| F-09 | Quotes, reserves, processing | Partial | All built except payment capture |
+| F-10 | Paid output and retention | Partial | Retention, holds, warnings, purge; no watermarked preview, no signed short-lived link |
+| F-11 | Business workspace and caps | Partial | Org, members, shared credit, caps, concurrency; top-up blocked |
+| F-12 | Payments and credit ledger | Blocked | Append-only ledger built; no provider, no reconciliation |
+| F-13 | Refunds and corrections | Not started | Blocked on provider; no correction tool |
+| F-14 | Beneficiaries and settlements | Not started | Blocked on provider |
+| F-15 | Reports, exports, audit | Partial | Customer data export; audit rows written for some actions; no audit search, no vendor reports |
+| F-16 | Support and escalations | Partial | Built; no attachments |
+| F-17 | Closure, deletion, incidents | Partial | Customer closure and deletion built; vendor closure, restore, incident register not built |
+| F-18 | Release, monitoring, handover | Partial | Docs, runbooks, health panel; no alerts, no deployed environment, no restore drill |
+
+## Requirement groups DEV / PM / FE / BE
+
+| ID | Requirement | Status | Evidence / gap |
+|---|---|---|---|
+| DEV-01 | Reproducible build | Partial | Lockfile, .env.example, migrations, typecheck/test/build scripts, README; no CI pipeline, runtime version not pinned (no .nvmrc/engines) |
+| DEV-02 | Environment separation | Partial | APP_ENV fail-closed rules; no real staging exists |
+| DEV-03 | Safe releases | Not started | No release record, no rollback demonstration |
+| DEV-04 | Integration contracts | Partial | docs/ROUTES.md and flowcharts; error codes and retry safety per endpoint not documented |
+| DEV-05 | Observability | Partial | x-correlation-id on API responses; /admin queue and scheduler view; no log dashboards, alerts, correlation into jobs or ledger |
+| DEV-06 | Completion evidence | Partial | Tests and docs per part; no deployed demonstration |
+| PM-01 | Requirement traceability | Partial | This matrix; PDF and markdown not diffed |
+| PM-02 | Service and pricing definition | Partial | Plans and processing prices in tables; pricing is a labelled dev placeholder; no admin UI; no effective dates |
+| PM-03 | Quotes and stale prices | Partial | 15-minute expiry and stale on revision change; tests/projects-quotes.test.ts |
+| PM-04 | Downgrade and quota | Not started | No storage quota |
+| PM-05 | Success and launch measures | Not started | No pilot metrics |
+| PM-06 | Communication and scope control | Partial | Continuation record kept in IMPLEMENTATION_STATUS.md; client owner not named |
+| FE-01 | Accessible interaction | Partial | Labelled forms and alert roles; no accessibility audit or keyboard test |
+| FE-02 | Mobile editor | Not started | Not tested on any mobile matrix |
+| FE-03 | Session and network recovery | Partial | Saved state shown only after server confirm; no offline or reconnect handling test (AT-24) |
+| FE-04 | Concurrent editing | Partial | Revision-token conflict tested |
+| FE-05 | Financial confirmation | Partial | Quote shown before reserve, idempotent submit; no double-click test in browser |
+| FE-06 | Upload/download handling | Partial | Limits validated; no per-file progress or cancel |
+| FE-07 | Component/state specification | Not started | No component spec |
+| BE-01 | Domain invariants | Partial | FKs and tenancy checks; tests/security.test.ts |
+| BE-02 | Atomicity and idempotency | Partial | Advisory locks, unique keys; tests/business.test.ts, tests/projects-quotes.test.ts |
+| BE-03 | Durable jobs | Partial | Leases, reaper, 3 attempts; no heartbeat, no exhausted-retry review queue UI |
+| BE-04 | Reservation lifecycle | Partial | Quote expiry independent of held reservations; proposed 30-minute abandoned-hold expiry not found in code |
+| BE-05 | Output integrity | Partial | Validate before publish, checksum stored; missing-file error surfaced |
+| BE-06 | Refund accounting | Not started | Blocked on provider |
+| BE-07 | Rate and storage controls | Partial | Enquiry limits and lockout; no per-tenant dispatch fairness, upload throttle or storage quota |
+| BE-08 | Reconciliation and recovery tests | Not started | Needs provider and restore |
+
+Annexes C–K: not mapped (not extracted from R3 in this pass).
 
 ## Optional modules (section 22)
 

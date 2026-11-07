@@ -47,7 +47,7 @@ Payments, top-ups, refunds, settlements and reconciliation (provider blocked); e
 ## Known deviations / caveats
 - Pricing is a labelled development placeholder (`PRICING_VERSION = dev-placeholder-v0`), not versioned configuration.
 - Storage is local disk (refused when `APP_ENV=production`).
-- R3 PDF and markdown not diffed in this pass. DEV/PM/FE/BE groups and Annexes C–K not yet mapped.
+- R3 PDF and markdown not diffed. Annexes C–K not mapped. DEV/PM/FE/BE and F-01–F-18 are mapped (Part 14 gap pass).
 
 ## Documentation (Part 13)
 - `docs/flowcharts/` 14 Mermaid sources + rendered SVGs + index (unbuilt flows drawn as NOT BUILT; layouts not client-reviewed).
@@ -56,6 +56,9 @@ Payments, top-ups, refunds, settlements and reconciliation (provider blocked); e
 - `docs/OUTPUT_ACCEPTANCE.md`: 60 synthetic renders (5 sizes x 4 formats x 3 dpi/bleed) re-measured independently, all pass. Synthetic source only; sRGB only; no CMYK; no PDF/X claim; not client-approved.
 - Defect found and fixed by the acceptance run: PDF trim box was off by up to ~0.2 mm when bleed was not a whole number of pixels. PDF page and Trim/Bleed boxes now use exact millimetres; regression test added.
 - `README.md` and `REMAINING_EXTERNAL.md` added. Runbooks mention gaps: no suspend-tenant or revoke-sessions screen, no secret rotation.
+
+## Gap pass (Part 14)
+Matrix refreshed against the code: 12 stale rows corrected (MFA, profile/security, dashboard, platform overview, jobs, health, WF-04 to WF-14), F/DEV/PM/FE/BE mapped. Gaps newly stated: no five-minute signed download link; no 30-minute abandoned-hold expiry; no upload progress/cancel; no storage quota; no heartbeat or exhausted-retry review UI; no runtime version pin or CI; no session list; no audit search; no customer list (SC-024).
 
 ## Next steps (in order)
 0. Organisation: profile form, per-person sharing, reassignment of removed members' projects, queued CSV exports, top-up (provider-blocked); the month boundary (IST) is my assumption: confirm with the client.
