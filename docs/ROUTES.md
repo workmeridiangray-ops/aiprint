@@ -97,6 +97,7 @@ the policy check (role and tenant) happens inside each handler through src/serve
 | API | `/api/vendor/customers` | GET | session + membership |
 | API | `/api/vendor/overview` | GET | session + membership |
 | API | `/api/vendor/pricing` | GET, PUT | session + membership |
+| API | `/api/vendor/reports/[kind]` | GET | session + membership |
 | API | `/api/vendor/settings` | GET, PUT | session + membership |
 | API | `/api/vendor/staff` | GET | session + membership |
 | API | `/api/vendors` | POST | public |
@@ -116,5 +117,6 @@ the policy check (role and tenant) happens inside each handler through src/serve
 | Page | `/vendor/claims` | GET | see page |
 | Page | `/vendor/customers` | GET | see page |
 | Page | `/vendor` | GET | see page |
+| Page | `/vendor/reports` | GET | see page |
 | Page | `/vendor/settings` | GET | see page |
 | Page | `/verify` | GET | see page |

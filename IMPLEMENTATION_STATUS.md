@@ -133,3 +133,7 @@ Canvas drag-to-move and a corner resize handle (kept on-canvas so it can always 
 - Staff two-step flag per store (mfa.ts userRequiresMfa); closing stores stay reachable for downloads but cannot start work.
 - Tests: tests/storeadmin.test.ts (8). Full run: 252 passing in 25 files.
 - Assumptions to confirm: CLOSURE_NOTICE_DAYS=14, CLOSED_STORE_PURGE_DAYS=7. Not done: a browser run of the two new screens, email to platform when a closure is requested.
+
+## Part 26: vendor reports (SC-031)
+- src/server/vendorreports.ts, /vendor/reports, /api/vendor/reports/[kind] (JSON or ?format=csv). Admin and finance see five reports; staff activity is admin only. Dates are Indian dates; 5,000-row cap with a visible warning.
+- Tests: tests/vendorreports.test.ts (4). Not done: queued/background export (the spec says a queued export rechecks permission; mine is immediate and rechecks at that moment), browser run of the page, customer statements.
