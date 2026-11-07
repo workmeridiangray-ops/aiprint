@@ -16,7 +16,14 @@ flowchart TD
   C4 --> C6["Reserve vendor processing credit only"]
   C5 --> C6
   C6 --> J
-  C7["Walk-in later claims the project"] --> C8["Vendor checks reference and contact<br/>claim and verified customer: NOT BUILT"]:::nb
+  C7["Walk-in later signs in online<br/>and sends the receipt number"] --> C7b{"Verified email equals the contact<br/>the store recorded?"}
+  C7b -->|"no, unknown receipt, other store<br/>or phone-only record: same refusal"| C7x["Refused: nothing created"]:::fail
+  C7b -->|yes| C8["Claim waits for the vendor admin<br/>(two claimants: conflict, reason required)"]
+  C8 --> C9{"Vendor admin decides"}
+  C9 -->|approve| C10["Projects, files and outputs move to the customer<br/>payments and ledger untouched"]
+  C9 -->|reject, with reason| C11["Customer told, nothing moves"]
+  class C7,C7b,C8,C9,C10,C11 built
   classDef built fill:#e3f1f1,stroke:#0f5f63,color:#14202b
+  classDef fail fill:#fdeaea,stroke:#a8281f,color:#14202b
   classDef nb fill:#f1f1f1,stroke:#8a8a8a,stroke-dasharray:5 3,color:#555
   class D1,V1,Q,R,J,OUT,C1,C2,C4,C5,C6 built

@@ -20,6 +20,7 @@ the policy check (role and tenant) happens inside each handler through src/serve
 | Page | `/(public)/store/[slug]` | GET | see page |
 | Page | `/(public)/terms` | GET | see page |
 | Page | `/(public)/vendor-signup` | GET | see page |
+| Page | `/account/claim` | GET | see page |
 | Page | `/account/data` | GET | see page |
 | Page | `/account/security` | GET | see page |
 | Page | `/admin` | GET | see page |
@@ -37,6 +38,10 @@ the policy check (role and tenant) happens inside each handler through src/serve
 | API | `/api/auth/reset-confirm` | POST | public |
 | API | `/api/auth/reset-request` | POST | public |
 | API | `/api/auth/verify-email` | POST | public |
+| API | `/api/claims/[id]/cancel` | POST | session + membership |
+| API | `/api/claims/[id]/decision` | POST | session + membership |
+| API | `/api/claims` | GET, POST | session + membership |
+| API | `/api/counter/customers/[id]/contact` | PATCH | session + membership |
 | API | `/api/counter/customers` | POST | session + membership |
 | API | `/api/counter/projects` | POST | session + membership |
 | API | `/api/counter/quotes/[id]/payment` | POST | session + membership |
@@ -103,6 +108,7 @@ the policy check (role and tenant) happens inside each handler through src/serve
 | Page | `/reset` | GET | see page |
 | Page | `/support/[id]` | GET | see page |
 | Page | `/support` | GET | see page |
+| Page | `/vendor/claims` | GET | see page |
 | Page | `/vendor/customers` | GET | see page |
 | Page | `/vendor` | GET | see page |
 | Page | `/verify` | GET | see page |

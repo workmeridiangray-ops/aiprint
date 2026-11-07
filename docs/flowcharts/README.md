@@ -9,7 +9,7 @@ Legend: teal = built and covered by tests; grey dashed = NOT BUILT (planned, or 
 |---|---|---|
 | 01 | Architecture, role boundaries, tenant isolation | Built |
 | 02 | Vendor onboarding, subscription, grace, expiry | Built except payment-verified activation (provider not chosen) |
-| 03 | Direct vs vendor online vs counter journey | Built except walk-in claim |
+| 03 | Direct vs vendor online vs counter journey | Built |
 | 04 | Upload, inspection, editor saving, revision conflict | Built except malware scan |
 | 05 | Quote expiry, reservations, durable dispatch | Built |
 | 06 | Processing attempts, failure release, validation | Built except external-provider uncertainty |

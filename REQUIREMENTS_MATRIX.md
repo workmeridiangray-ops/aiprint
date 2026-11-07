@@ -39,7 +39,7 @@ Totals (refreshed in the gap pass): 75 surfaces; 54 partial, 2 blocked, 19 not s
 | SC-027 | Counter project | Partial | /counter step 1-2 (customer, upload, price) | tests/vendor.test.ts; browser run | No customer search/reuse; fixed 300 dpi/3 mm bleed/PDF in the counter form; no editor on counter path |
 | SC-028 | Counter payment and receipt | Partial | /counter step 3-4; POST /api/counter/quotes/[id]/payment|reserve; receipt number | tests/vendor.test.ts; browser run | Receipt is a number only: no printable receipt page naming vendor/project/method; no refunds of counter payments |
 | SC-029 | Counter output override | Partial | recordCounterPayment overrideReason (admin only, audited) | tests/vendor.test.ts | No UI for override |
-| SC-030 | Claim walk-in project | Not started | - | - | Not implemented |
+| SC-030 | Claim walk-in project | Partial | /account/claim (customer: request by receipt number, see status, cancel); /vendor/claims (vendor admin: approve/reject with reason, conflicts flagged); Correct contact on /vendor/customers; POST/GET /api/claims, POST /api/claims/[id]/decision and /cancel, PATCH /api/counter/customers/[id]/contact; approval email and outbox notices | tests/claims.test.ts (10 tests: happy path moves projects/files/outputs and leaves payments and ledger unchanged; same refusal for wrong email, phone-only record, other store, unknown receipt; unverified email; rate limit; admin-only; conflicts; contact changed after request; corrections audited; cancel); tests/e2e/claims-flow.cjs (Playwright, 2026-11-08) | Only an email can be matched (no phone verification exists, no SMS provider); no claim email to the vendor admin (they see the waiting count on /vendor); platform-side claim review in SC-058 not built; no screen to see a record's contact history; not tested on a real phone |
 | SC-031 | Vendor reports | Partial | Overview only | tests/vendor.test.ts | No reports/exports |
 | SC-032 | Vendor credits and top-up | Not started | - | - | Not implemented |
 | SC-033 | Vendor settlement statement | Not started | - | - | Not implemented |
@@ -139,7 +139,7 @@ Status refreshed in the Part 14 gap pass against the code. **Partial** = real te
 | WF-10 | Customer requests download | Not started |
 | WF-11 | Paid project changed | Not started |
 | WF-12 | Walk-in customer | Not started |
-| WF-13 | Walk-in claim | Not started |
+| WF-13 | Walk-in claim | Partial (see SC-030) |
 | WF-14 | Business member spends | Not started |
 | WF-15 | Refund requested | Not started |
 | WF-16 | Financial correction | Not started |
@@ -162,7 +162,7 @@ Status is the weakest honest summary of the screens each group maps to.
 | F-02 | Identity, sessions, recovery | Partial | Verify, reset, invite, TOTP, recovery codes, lockout, workspace via membership; no workspace chooser, no session list |
 | F-03 | Vendor activation and branding | Partial | Self-signup, scoped portal, store landing, accent colour; activation by verified payment blocked; website-entry integration not built |
 | F-04 | Subscriptions and plan changes | Partial | Lifecycle, grace, expiry, reminders; verified renewal blocked on provider |
-| F-05 | Customer and counter management | Partial | Counter customers and external receipt; customer list screen (SC-024) and verified claim (SC-030) not built |
+| F-05 | Customer and counter management | Partial | Counter customers and external receipt; customer list screen (SC-024) and verified claim (SC-030) built (email match only) |
 | F-06 | Upload and print inspection | Partial | Byte inspection, limits, DPI warning; no malware scan |
 | F-07 | Editor and version management | Partial | Transforms, revision conflict; drag-move and resize handle built; no free crop rectangle, rotate handle or back side |
 | F-08 | Enhancement, bleed, export | Partial | Mirror bleed, PNG/JPG/TIFF/PDF, measured acceptance record; enhancement integrated (OpenCV dnn_superres ESPCN, 2x/4x, preview on a crop; measured: better than a plain resize on a detailed sample by 2-5 dB PSNR, worse on a smooth one; quote refused if unavailable or too large); CMYK TIFF/PDF (FOGRA39, 300% ink limit); no PDF/X (excluded by the quotation); no enhancement surcharge defined (price depends on output size only) |

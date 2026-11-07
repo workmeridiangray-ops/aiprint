@@ -1,6 +1,6 @@
 # Data model
 
-Generated from the migrated development database (41 tables). Migrations in /migrations are the source of truth.
+Generated from the migrated development database (43 tables). Migrations in /migrations are the source of truth.
 
 ### account_requests
 - id uuid not null
@@ -45,6 +45,16 @@ Generated from the migrated development database (41 tables). Migrations in /mig
 - created_at timestamp with time zone not null
 - references: invited_by -> users; user_id -> users; tenant_id -> tenants
 
+### counter_contact_history
+- id bigint not null
+- counter_customer_id uuid not null
+- old_contact text
+- new_contact text
+- reason text not null
+- changed_by uuid not null
+- changed_at timestamp with time zone not null
+- references: counter_customer_id -> counter_customers; changed_by -> users
+
 ### counter_customers
 - id uuid not null
 - tenant_id uuid not null
@@ -52,7 +62,9 @@ Generated from the migrated development database (41 tables). Migrations in /mig
 - contact text
 - created_by uuid
 - created_at timestamp with time zone not null
-- references: tenant_id -> tenants; created_by -> users
+- claimed_by_user_id uuid
+- claimed_at timestamp with time zone
+- references: tenant_id -> tenants; created_by -> users; claimed_by_user_id -> users
 
 ### counter_payments
 - id uuid not null
@@ -462,3 +474,17 @@ Generated from the migrated development database (41 tables). Migrations in /mig
 - support_email text
 - updated_at timestamp with time zone not null
 - references: tenant_id -> tenants
+
+### walkin_claims
+- id uuid not null
+- tenant_id uuid not null
+- counter_customer_id uuid not null
+- requester_user_id uuid not null
+- receipt_no text not null
+- requester_email text not null
+- status text not null
+- decided_by uuid
+- decided_at timestamp with time zone
+- decision_reason text
+- created_at timestamp with time zone not null
+- references: tenant_id -> tenants; counter_customer_id -> counter_customers; requester_user_id -> users; decided_by -> users

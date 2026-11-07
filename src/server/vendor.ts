@@ -254,16 +254,17 @@ export async function reserveCounter(actor: Actor, quoteId: string) {
 export async function overview(actor: Actor) {
   need(actor, ['vendor_admin', 'vendor_finance']);
   const p = getPool(), t = actor.tenantId;
-  const [cust, jobs, pay, sub, acc] = await Promise.all([
+  const [cust, jobs, pay, sub, acc, claims] = await Promise.all([
     p.query("select count(*)::int n from memberships where tenant_id=$1 and role='customer' and revoked_at is null", [t]),
     p.query('select status, count(*)::int n from jobs where tenant_id=$1 group by status', [t]),
     p.query('select count(*)::int n, coalesce(sum(amount_paise),0)::bigint total from counter_payments where tenant_id=$1 and method is not null', [t]),
     p.query('select s.status, sp.period_end from subscriptions s left join subscription_periods sp on sp.id=s.current_period_id where s.tenant_id=$1', [t]),
     p.query("select id from ledger_accounts where tenant_id=$1 and kind='vendor_processing_credit'", [t]),
+    p.query("select count(*)::int n from walkin_claims where tenant_id=$1 and status in ('pending','conflict')", [t]),
   ]);
   return {
     storage: await storageState(p, t),
-    customers: cust.rows[0].n, jobsByStatus: Object.fromEntries(jobs.rows.map(r => [r.status, r.n])),
+    customers: cust.rows[0].n, claimsWaiting: claims.rows[0].n as number, jobsByStatus: Object.fromEntries(jobs.rows.map(r => [r.status, r.n])),
     counterPayments: { count: pay.rows[0].n, totalPaise: Number(pay.rows[0].total), note: 'Recorded outside the platform; not platform-collected money' },
     subscription: sub.rows[0] ?? null, processingCredit: acc.rowCount ? await balance(acc.rows[0].id) : { settled: 0, held: 0, available: 0 },
   };
@@ -292,6 +293,7 @@ export async function listCustomers(actor: Actor, f: { q?: string; cursor?: stri
   const rows = r.rows.slice(0, limit);
   const last = rows[rows.length - 1];
   return {
+    isAdmin: online,
     rows: rows.map(x => ({ kind: x.kind as 'online' | 'counter', id: x.id as string, name: x.label as string, contact: x.contact as string | null, since: new Date(x.created_at).toISOString(), jobs: x.jobs as number, closed: !!x.closed })),
     nextCursor: r.rows.length > limit ? `${new Date(last.created_at).toISOString()}|${last.id}` : null,
   };

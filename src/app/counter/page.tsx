@@ -31,6 +31,6 @@ export default function Counter() {
       <p className="muted">Record money you have already taken from the customer. This is not processed by the platform.</p>
       <label htmlFor="method">Paid by</label><select id="method" name="method"><option value="cash">Cash</option><option value="upi_external">UPI (outside platform)</option><option value="card_external">Card machine (outside platform)</option><option value="other">Other</option></select>
       <label htmlFor="ref">Reference (optional)</label><input id="ref" name="ref" /><button disabled={busy}>Record payment and start processing</button></form>}
-    {step === 4 && <div className="card" role="status"><h2>Receipt {receipt}</h2><p>Payment recorded. Processing has started.</p><button onClick={() => location.reload()}>New counter job</button></div>}
+    {step === 4 && <div className="card" role="status"><h2>Receipt {receipt}</h2><p>Payment recorded. Processing has started.</p><p className="muted">Give the customer this receipt number. If they later sign up online with the email address recorded for them, they can use it to ask for these files to be added to their account. A phone number alone cannot be used for that, so record an email if you can.</p><button onClick={() => location.reload()}>New counter job</button></div>}
   </main>;
 }
