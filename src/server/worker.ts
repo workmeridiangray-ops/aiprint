@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { getPool, tx, AppError } from './db';
-import { renderExport, validateOutput } from './engine';
+import { renderExport, validateOutput, FORMATS } from './engine';
 import { postEntry } from './ledger';
 import { audit } from './identity';
 import { validateSettings } from './projects';
@@ -76,13 +76,13 @@ export async function runJob(jobId: string, workerId: string, attempt: number, h
     const src = await readFile(path.join(dir(), row.storage_key));
     const out = await renderExport(src, settings);
     const v = await validateOutput(out, settings);
-    const key = `${row.tenant_id}/exports/${randomUUID()}.png`;
+    const key = `${row.tenant_id}/exports/${randomUUID()}.${FORMATS[settings.format].ext}`;
     await mkdir(path.dirname(path.join(dir(), key)), { recursive: true });
     await writeFile(path.join(dir(), key), out, { flag: 'wx' });
     if (hooks.beforeFinalize) await hooks.beforeFinalize();
     return await tx(async c => {
-      const f = await c.query(`insert into stored_files(tenant_id,owner_user_id,kind,storage_key,sha256,bytes,width_px,height_px,format) values($1,$2,'export',$3,$4,$5,$6,$7,'png') returning id`,
-        [row.tenant_id, row.owner, key, v.sha256, v.bytes, v.width, v.height]);
+      const f = await c.query(`insert into stored_files(tenant_id,owner_user_id,kind,storage_key,sha256,bytes,width_px,height_px,format) values($1,$2,'export',$3,$4,$5,$6,$7,$8) returning id`,
+        [row.tenant_id, row.owner, key, v.sha256, v.bytes, v.width, v.height, v.format]);
       return finalizeSuccess(c, jobId, workerId, attempt, f.rows[0].id, v, row.owner);
     });
   } catch (e: any) {

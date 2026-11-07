@@ -9,10 +9,11 @@ export const SettingsSchema = z.object({
   bleedMm: z.number().min(0).max(20),
   dpi: z.number().int().min(72).max(1200),
   fit: z.enum(['fit', 'fill']),
+  format: z.enum(['png', 'jpg', 'tiff', 'pdf']).default('png'),
   offsetXMm: z.number().default(0),
   offsetYMm: z.number().default(0),
   rotationDeg: z.number().min(-360).max(360).default(0),
-  scale: z.number().min(0.01).max(100).default(1),
+  scale: z.number().min(0.05).max(20).default(1),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 export const MAX_OUTPUT_PIXELS = 80_000_000;

@@ -5,3 +5,6 @@ h1,h2{font-family:"IBM Plex Sans",system-ui,sans-serif;margin:0 0 12px}main{max-
 label{display:block;font-weight:600;margin:10px 0 4px}input,select{width:100%;padding:8px;border:1px solid var(--line);border-radius:4px;font:inherit}
 button{background:var(--teal);color:#fff;border:0;border-radius:4px;padding:9px 14px;font:inherit;cursor:pointer;margin-top:12px}button:disabled{opacity:.5}
 :focus-visible{outline:3px solid #7fc4c8;outline-offset:2px}.err{color:var(--err)}.muted{color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}.bar button{margin-top:0;padding:6px 10px}
+details>summary{cursor:pointer;margin-bottom:8px}canvas{display:block;height:auto}
+@media (max-width:600px){main{padding:12px 10px}.grid{grid-template-columns:1fr 1fr}}

@@ -1,41 +1,95 @@
 'use client';
-import { useEffect, useRef, useState, use } from 'react';
-type S = { widthMm: number; heightMm: number; bleedMm: number; dpi: number; fit: 'fit' | 'fill' };
-const DEF: S = { widthMm: 210, heightMm: 297, bleedMm: 3, dpi: 300, fit: 'fill' };
-type Save = 'saved' | 'saving' | 'unsaved' | 'error' | 'conflict';
+import { useEffect, useRef, useState, use, useCallback } from 'react';
+import { placement, dpiLevel, LOW_DPI_WARN } from '@/lib/geometry';
+
+type S = { widthMm: number; heightMm: number; bleedMm: number; dpi: number; fit: 'fit' | 'fill'; format: 'png' | 'jpg' | 'tiff' | 'pdf'; offsetXMm: number; offsetYMm: number; rotationDeg: number; scale: number };
+const DEF: S = { widthMm: 210, heightMm: 297, bleedMm: 3, dpi: 300, fit: 'fill', format: 'png', offsetXMm: 0, offsetYMm: 0, rotationDeg: 0, scale: 1 };
+const PRESETS: Record<string, [number, number]> = { 'A4 (210 × 297)': [210, 297], 'A5 (148 × 210)': [148, 210], 'A6 (105 × 148)': [105, 148], 'Business card (90 × 55)': [90, 55], 'Poster A3 (297 × 420)': [297, 420] };
+const SAFE_MM = 3;
+type Save = 'saved' | 'saving' | 'unsaved' | 'error' | 'conflict' | 'offline';
 const j = { 'content-type': 'application/json' };
+const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 
 export default function Editor({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [s, setS] = useState<S>(DEF); const rev = useRef(1); const [sourceId, setSourceId] = useState<string | null>(null);
+  const [s, setS] = useState<S>(DEF); const sRef = useRef(s); sRef.current = s;
+  const editStart = useRef<S | null>(null); const past = useRef<S[]>([]); const future = useRef<S[]>([]); const [, bump] = useState(0);
+  const rev = useRef(1); const [sourceId, setSourceId] = useState<string | null>(null);
   const [state, setState] = useState<Save>('saved'); const [msg, setMsg] = useState(''); const [quote, setQuote] = useState<any>(null);
   const [loading, setLoading] = useState(true); const timer = useRef<any>(null); const dirty = useRef(false);
+  const [zoom, setZoom] = useState(1); const [imgInfo, setImgInfo] = useState<{ w: number; h: number; profile?: string } | null>(null);
+  const img = useRef<HTMLImageElement | null>(null); const canvas = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => { (async () => {
     const r = await fetch(`/api/projects/${id}`);
     if (r.status === 401) { location.href = '/login'; return; }
     if (!r.ok) { setMsg((await r.json()).message); setLoading(false); return; }
     const p = await r.json(); rev.current = p.revision; setSourceId(p.sourceFileId); if (p.settings?.widthMm) setS({ ...DEF, ...p.settings }); setLoading(false);
-  })(); }, [id]);
+  })().catch(() => { setMsg('Could not load. Check your connection and reload.'); setLoading(false); }); }, [id]);
+
+  useEffect(() => { if (!sourceId) { img.current = null; setImgInfo(null); return; }
+    const im = new Image(); im.onload = () => { img.current = im; setImgInfo({ w: im.naturalWidth, h: im.naturalHeight }); draw(); };
+    im.onerror = () => setMsg('The image could not be loaded for preview.'); im.src = `/api/files/${sourceId}`; }, [sourceId]); // eslint-disable-line
+
   useEffect(() => { const h = (e: BeforeUnloadEvent) => { if (dirty.current) e.preventDefault(); }; addEventListener('beforeunload', h); return () => removeEventListener('beforeunload', h); }, []);
+  useEffect(() => { const on = () => dirty.current && scheduleSave(sRef.current, 0); const off = () => setState(st => (st === 'saved' ? st : 'offline')); addEventListener('online', on); addEventListener('offline', off); return () => { removeEventListener('online', on); removeEventListener('offline', off); }; }); // eslint-disable-line
+
+  const geo = imgInfo ? placement(imgInfo.w, imgInfo.h, s) : null;
+  const eff = geo ? geo.effectiveDpi : null;
+
+  const draw = useCallback(() => {
+    const c = canvas.current; const im = img.current; if (!c) return;
+    const cur = sRef.current; const outW = Math.round((cur.widthMm + 2 * cur.bleedMm) / 25.4 * cur.dpi), outH = Math.round((cur.heightMm + 2 * cur.bleedMm) / 25.4 * cur.dpi);
+    const maxW = Math.min(720, (c.parentElement?.clientWidth ?? 720)) * zoom; const k = maxW / outW;
+    c.width = Math.round(outW * k); c.height = Math.round(outH * k);
+    const ctx = c.getContext('2d')!; const mm = (outW / (cur.widthMm + 2 * cur.bleedMm)) * k; // canvas px per mm
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+    const b = cur.bleedMm * mm, tw = cur.widthMm * mm, th = cur.heightMm * mm;
+    if (im) {
+      const g = placement(im.naturalWidth, im.naturalHeight, cur); const pk = k; // geometry is in output px
+      ctx.save(); ctx.beginPath(); ctx.rect(b, b, tw, th); ctx.clip();
+      ctx.translate(b + (g.left + g.nw / 2) * pk, b + (g.top + g.nh / 2) * pk); ctx.rotate((cur.rotationDeg * Math.PI) / 180);
+      ctx.drawImage(im, (-im.naturalWidth * g.total * pk) / 2, (-im.naturalHeight * g.total * pk) / 2, im.naturalWidth * g.total * pk, im.naturalHeight * g.total * pk); ctx.restore();
+    }
+    ctx.fillStyle = 'rgba(15,95,99,.12)'; ctx.fillRect(0, 0, c.width, b); ctx.fillRect(0, c.height - b, c.width, b); ctx.fillRect(0, b, b, th); ctx.fillRect(c.width - b, b, b, th); // bleed area (filled by edge mirroring on export)
+    ctx.lineWidth = 1; ctx.strokeStyle = '#c0392b'; ctx.strokeRect(b + .5, b + .5, tw, th); // trim
+    ctx.setLineDash([5, 4]); ctx.strokeStyle = '#1f7a3a'; ctx.strokeRect(b + SAFE_MM * mm, b + SAFE_MM * mm, tw - 2 * SAFE_MM * mm, th - 2 * SAFE_MM * mm); ctx.setLineDash([]); // safe
+  }, [zoom]);
+  useEffect(() => { draw(); }, [draw, s, imgInfo, loading]);
 
   async function save(next: S, src: string | null = sourceId) {
     setState('saving'); setMsg('');
-    const r = await fetch(`/api/projects/${id}`, { method: 'PATCH', headers: j, body: JSON.stringify({ revision: rev.current, settings: next, sourceFileId: src }) });
-    const b = await r.json();
-    if (r.ok) { rev.current = b.revision; dirty.current = false; setState('saved'); }
-    else if (b.error === 'revision_conflict') { setState('conflict'); setMsg('This project was changed in another window. Reload to see the latest version before editing.'); }
-    else { setState('error'); setMsg(b.message ?? 'Could not save'); }
+    try {
+      const r = await fetch(`/api/projects/${id}`, { method: 'PATCH', headers: j, body: JSON.stringify({ revision: rev.current, settings: next, sourceFileId: src }) });
+      const b = await r.json();
+      if (r.ok) { rev.current = b.revision; dirty.current = JSON.stringify(sRef.current) !== JSON.stringify(next); setState(dirty.current ? 'unsaved' : 'saved'); }
+      else if (r.status === 401) { setState('error'); setMsg('Your session has expired. Sign in again; your last saved version is kept.'); }
+      else if (b.error === 'revision_conflict') { setState('conflict'); setMsg('This project was changed in another window. Reload to see the latest version before editing.'); }
+      else { setState('error'); setMsg(b.message ?? 'Could not save'); }
+    } catch { setState('offline'); setMsg('You are offline. Changes are not saved yet; they will be retried when you reconnect.'); }
   }
-  function change(k: keyof S, v: any) {
-    const next = { ...s, [k]: v }; setS(next); dirty.current = true; setState('unsaved'); setQuote(null);
-    clearTimeout(timer.current); timer.current = setTimeout(() => save(next), 1200);
+  function scheduleSave(next: S, delay = 1200) { clearTimeout(timer.current); timer.current = setTimeout(() => save(next), delay); }
+  function commit(next: S, record = true) {
+    if (record) { past.current.push(sRef.current); if (past.current.length > 100) past.current.shift(); future.current = []; }
+    setS(next); dirty.current = true; setState('unsaved'); setQuote(null); scheduleSave(next); bump(x => x + 1);
+  }
+  const set = (patch: Partial<S>, record = true) => commit({ ...sRef.current, ...patch }, record);
+  function undo() { const p = past.current.pop(); if (!p) return; future.current.push(sRef.current); setS(p); dirty.current = true; setState('unsaved'); setQuote(null); scheduleSave(p); bump(x => x + 1); }
+  function redo() { const n = future.current.pop(); if (!n) return; past.current.push(sRef.current); setS(n); dirty.current = true; setState('unsaved'); setQuote(null); scheduleSave(n); bump(x => x + 1); }
+  function onKey(e: React.KeyboardEvent) {
+    const step = e.shiftKey ? 5 : 0.5; const cur = sRef.current;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+    const m: Record<string, Partial<S>> = { ArrowLeft: { offsetXMm: cur.offsetXMm - step }, ArrowRight: { offsetXMm: cur.offsetXMm + step }, ArrowUp: { offsetYMm: cur.offsetYMm - step }, ArrowDown: { offsetYMm: cur.offsetYMm + step } };
+    if (m[e.key]) { e.preventDefault(); set(m[e.key]); }
   }
   async function upload(f: File) {
     setMsg(''); const fd = new FormData(); fd.append('file', f);
-    const r = await fetch('/api/files', { method: 'POST', body: fd }); const b = await r.json();
-    if (!r.ok) { setMsg(b.message); return; }
-    setSourceId(b.fileId); setMsg(`${b.width}×${b.height}px ${b.format.toUpperCase()}, colour profile: ${b.colourProfile}.`); await save(s, b.fileId);
+    try {
+      const r = await fetch('/api/files', { method: 'POST', body: fd }); const b = await r.json();
+      if (!r.ok) { setMsg(b.message); return; }
+      setSourceId(b.fileId); setMsg(`${b.width}×${b.height}px ${b.format.toUpperCase()}. Colour profile: ${b.colourProfile === 'embedded' ? 'embedded' : 'none embedded, treated as sRGB'}.`); setQuote(null);
+      past.current.push(sRef.current); await save(sRef.current, b.fileId);
+    } catch { setMsg('Upload failed. Check your connection and try again.'); }
   }
   async function getQuote() {
     if (state !== 'saved') { setMsg('Wait for the project to finish saving.'); return; }
@@ -44,19 +98,38 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
   }
   async function reserve() {
     const r = await fetch(`/api/quotes/${quote.quoteId}/reserve`, { method: 'POST' }); const b = await r.json();
-    if (r.ok) { location.href = `/jobs/${b.jobId}`; } else setMsg(b.message);
+    if (r.ok) location.href = `/jobs/${b.jobId}`; else setMsg(b.message);
   }
-  const num = (k: keyof S, label: string, step = 1) => <div><label htmlFor={k}>{label}</label>
-    <input id={k} type="number" step={step} value={s[k] as number} onChange={e => change(k, Number(e.target.value))} /></div>;
+  const num = (k: keyof S, label: string, step = 1, min?: number, max?: number) => <div><label htmlFor={k}>{label}</label>
+    <input id={k} type="number" step={step} min={min} max={max} value={s[k] as number} onChange={e => { const v = Number(e.target.value); if (!Number.isNaN(v)) set({ [k]: min !== undefined && max !== undefined ? clamp(v, min, max) : v } as Partial<S>, false); }} onFocus={() => { editStart.current = sRef.current; }} onBlur={() => { const st = editStart.current; editStart.current = null; if (st && JSON.stringify(st) !== JSON.stringify(sRef.current)) { past.current.push(st); future.current = []; bump(x => x + 1); } }} /></div>;
   if (loading) return <main><p className="muted">Loading…</p></main>;
+  const lvl = eff ? dpiLevel(eff) : null;
+  const label = { saved: 'All changes saved', saving: 'Saving…', unsaved: 'Unsaved changes', error: 'Save failed', conflict: 'Save blocked: newer version exists', offline: 'Offline: not saved' }[state];
   return <main><h1>Prepare artwork</h1>
-    <p aria-live="polite" role="status">{{ saved: 'All changes saved', saving: 'Saving…', unsaved: 'Unsaved changes', error: 'Save failed', conflict: 'Save blocked: newer version exists' }[state]}</p>
+    <p aria-live="polite" role="status">{label}</p>
     <p role="alert" className={state === 'saved' ? 'muted' : 'err'}>{msg}</p>
     <div className="card"><label htmlFor="file">Image (JPG or PNG, up to 25 MB / 40 MP)</label>
       <input id="file" type="file" accept="image/jpeg,image/png" onChange={e => e.target.files?.[0] && upload(e.target.files[0])} />
-      <p className="muted">{sourceId ? 'Image attached.' : 'No image yet.'}</p></div>
-    <div className="card"><div className="grid">{num('widthMm', 'Width (mm)')}{num('heightMm', 'Height (mm)')}{num('bleedMm', 'Bleed (mm)', 0.5)}{num('dpi', 'Resolution (dpi)', 50)}
-      <div><label htmlFor="fit">Placement</label><select id="fit" value={s.fit} onChange={e => change('fit', e.target.value)}><option value="fill">Fill (crop edges)</option><option value="fit">Fit (show all)</option></select></div></div></div>
+      {!sourceId && <p className="muted">No image yet.</p>}</div>
+    {lvl === 'low' && <p role="alert" className="err">Print quality warning: at this size the image resolves to about {Math.round(eff!)} dpi (below {LOW_DPI_WARN}). It may look soft when printed.</p>}
+    {lvl === 'ok' && <p className="muted">Effective resolution about {Math.round(eff!)} dpi: acceptable, not ideal.</p>}
+    {lvl === 'good' && <p className="muted">Effective resolution about {Math.round(eff!)} dpi.</p>}
+    <div className="card"><div className="bar">
+      <button type="button" onClick={undo} disabled={!past.current.length}>Undo</button><button type="button" onClick={redo} disabled={!future.current.length}>Redo</button>
+      <button type="button" onClick={() => setZoom(z => clamp(+(z - 0.25).toFixed(2), 0.5, 3))} aria-label="Zoom out">−</button><span aria-live="polite">{Math.round(zoom * 100)}%</span>
+      <button type="button" onClick={() => setZoom(z => clamp(+(z + 0.25).toFixed(2), 0.5, 3))} aria-label="Zoom in">+</button>
+      <button type="button" onClick={() => setZoom(1)}>Reset zoom</button></div>
+      <div style={{ overflow: 'auto', maxWidth: '100%' }}><canvas ref={canvas} tabIndex={0} onKeyDown={onKey} role="img" aria-label="Print preview. Use arrow keys to move the image, Shift for larger steps, Ctrl+Z to undo." style={{ border: '1px solid var(--line)', maxWidth: 'none' }} /></div>
+      <p className="muted">Red line: trim. Green dashes: safe area. Tinted edge: bleed, filled by mirroring your image edges when exported. This is a preview; the exported file is produced on the server.</p></div>
+    <details className="card" open><summary><strong>Size and output</strong></summary>
+      <div className="grid"><div><label htmlFor="preset">Preset</label><select id="preset" value="" onChange={e => { const p = PRESETS[e.target.value]; if (p) set({ widthMm: p[0], heightMm: p[1] }); }}><option value="">Custom</option>{Object.keys(PRESETS).map(k => <option key={k}>{k}</option>)}</select></div>
+        {num('widthMm', 'Width (mm)', 1, 1, 500)}{num('heightMm', 'Height (mm)', 1, 1, 500)}{num('bleedMm', 'Bleed (mm)', 0.5, 0, 20)}{num('dpi', 'Resolution (dpi)', 50, 72, 1200)}
+        <div><label htmlFor="format">File format</label><select id="format" value={s.format} onChange={e => set({ format: e.target.value as S['format'] })}><option value="png">PNG (RGB)</option><option value="jpg">JPG (RGB)</option><option value="tiff">TIFF (RGB)</option><option value="pdf">PDF (single flattened page)</option></select></div></div></details>
+    <details className="card" open><summary><strong>Position and fit</strong></summary>
+      <div className="grid"><div><label htmlFor="fit">Placement</label><select id="fit" value={s.fit} onChange={e => set({ fit: e.target.value as S['fit'], offsetXMm: 0, offsetYMm: 0 })}><option value="fill">Fill (crop edges)</option><option value="fit">Fit (show all)</option></select></div>
+        {num('scale', 'Scale (×)', 0.05, 0.05, 20)}{num('rotationDeg', 'Rotation (°)', 1, -360, 360)}{num('offsetXMm', 'Move across (mm)', 0.5)}{num('offsetYMm', 'Move down (mm)', 0.5)}</div>
+      <div className="bar"><button type="button" onClick={() => set({ offsetXMm: 0 })}>Centre across</button><button type="button" onClick={() => set({ offsetYMm: 0 })}>Centre down</button>
+        <button type="button" onClick={() => set({ offsetXMm: 0, offsetYMm: 0, rotationDeg: 0, scale: 1 })}>Reset position</button></div></details>
     <div className="card"><button onClick={getQuote} disabled={!sourceId || state === 'conflict'}>Get price</button>
       {quote && <p>Price ₹{(quote.customerAmountPaise / 100).toFixed(2)}, valid until {new Date(quote.expiresAt).toLocaleTimeString()}. <button onClick={reserve}>Hold funds and queue job</button></p>}</div>
   </main>;
