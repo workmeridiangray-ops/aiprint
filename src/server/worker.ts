@@ -123,8 +123,9 @@ export async function readOutput(actor: Actor, outputId: string) {
   const nf = () => new AppError('not_found', 'File not found', 404);
   if (!o) throw nf();
   if (!(await canReadProject(getPool(), actor, { tenant_id: o.p_tenant, owner_user_id: o.p_owner, org_id: o.org_id, visibility: o.visibility }))) throw nf();
+  if (o.revoked_at || o.purged_at) throw new AppError('removed', 'This file was removed', 410);
   if (new Date(o.expires_at) <= new Date()) throw new AppError('expired', 'This file has passed its retention period', 410);
-  const buf = await readFile(path.join(dir(), o.storage_key));
+  const buf = await readFile(path.join(dir(), o.storage_key)).catch(() => { throw new AppError('file_missing', 'The stored file could not be found. Support has been alerted.', 500); });
   const { createHash } = await import('node:crypto');
   if (createHash('sha256').update(buf).digest('hex') !== o.sha256) throw new AppError('integrity_failed', 'The stored file failed its integrity check. Support has been alerted.', 500);
   return { buf, format: o.format as string };

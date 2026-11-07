@@ -54,8 +54,8 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | SC-042 | Customer credits and checkout | Blocked | Reservation against personal or organisation credit only | tests/projects-quotes.test.ts; tests/business.test.ts | No top-up/checkout for personal, organisation or vendor credit: blocked on the payment provider. Organisation credit in dev/tests is seeded directly into the ledger |
 | SC-043 | Processing status | Partial | /jobs/[id]; GET /api/jobs/[id]; scripts/worker.ts | tests/worker.test.ts | Polling UI only; no failure-review queue UI; no cancel button |
 | SC-044 | Result preview | Partial | Download link on /jobs/[id] | tests/worker.test.ts; browser run (PDF downloaded) | No result preview image |
-| SC-045 | Downloads and versions | Partial | GET /api/outputs/[id]/download; PNG, JPG, TIFF, PDF (RGB) | tests/engine.test.ts; tests/worker.test.ts | No CMYK, no version list, no 7-day warning |
-| SC-046 | Customer transactions | Not started | - | - | Not implemented |
+| SC-045 | Downloads and versions | Partial | /library lists every finished file (state, days left), free re-download while retained, expired/removed shown clearly; GET /api/outputs/[id]/download | tests/retention.test.ts; tests/worker.test.ts; tests/e2e/library-flow.cjs (Playwright, 2026-11-07) | No CMYK; no per-project version cap/archive yet; each job produces one file, no version grouping |
+| SC-046 | Customer transactions | Partial | /library "Credit and charges" (own records only: held/charged/released, personal credit balance) | tests/retention.test.ts | No top-ups or refunds (payment provider blocked); organisation members see their own jobs only |
 | SC-047 | Profile and security | Not started | - | - | Not implemented |
 | SC-048 | Account export and closure | Not started | - | - | Not implemented |
 | SC-049 | Organisation profile | Partial | /business (create); PATCH /api/orgs/[id] | tests/business.test.ts; tests/e2e/business-flow.cjs (Playwright, 2026-11-07) | Profile edit has an API but no form on the page; billing contact stored only; store context implicit (one store per organisation) |
@@ -80,7 +80,7 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | SC-068 | Settlement run | Not started | - | - | Not implemented |
 | SC-069 | Financial exception detail | Not started | - | - | Not implemented |
 | SC-070 | Audit search | Not started | - | - | Not implemented |
-| SC-071 | Retention and deletion requests | Not started | - | - | Not implemented |
+| SC-071 | Retention and deletion requests | Partial | Customer delete (links stop at once; live copy purged by the next run); staff holds; metadata and ledger kept | tests/retention.test.ts | No support-ticket path for requests, no purge of temporary processing files, no deletion for already-shared org copies beyond owner |
 | SC-072 | Service health and alerts | Not started | - | - | Not implemented |
 | SC-073 | Configuration and notifications | Not started | - | - | Not implemented |
 | SC-074 | Recovery and incident register | Not started | - | - | Not implemented |
@@ -109,7 +109,7 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | AT-17 | Refund races with settlement: statement/payable reconcile and any recovery remains linked, not bank- | Not started | No test |
 | AT-18 | Prepared payout run modified after approval requires reapproval; failed/unknown transfer cannot dupl | Not started | No test |
 | AT-19 | Subscription expiry/downgrade blocks only defined new actions; retained paid outputs remain accessib | Partial | Expired subscription blocks new paid jobs but keeps retrieval; 7-day grace; scheduled plan change at renewal: tested. Downgrade over-quota handling and storage quotas not built |
-| AT-20 | Retention warning, hold, revoke and purge apply to correct file copies; metadata stays; failed purge | Not started | No test |
+| AT-20 | Retention warning, hold, revoke and purge apply to correct file copies; metadata stays; failed purge | Partial | tests/retention.test.ts covers one warning (rerun-safe), hold blocks purge, revoke, purge keeps metadata and ledger, failed purge recorded and retried, crash-recovery. Original-upload and preview copies are not yet covered |
 | AT-21 | Recover representative database + source + paid output + entitlement within approved targets; reconc | Not started | No test |
 | AT-22 | Metadata API p95 ≤2 seconds at defined load on approved infrastructure; queues remain fair, source/o | Not started | No test |
 | AT-23 | Supported phone flow completes upload/edit/price/pay/download; keyboard forms and numeric editor alt | Not started | No test |
@@ -149,7 +149,7 @@ All **Not started** except where noted: WF-03 (customer starts project: upload �
 | WF-20 | Suspension/downgrade | Not started |
 | WF-21 | Support escalation | Not started |
 | WF-22 | Closure/deletion | Not started |
-| WF-23 | Retention job | Not started |
+| WF-23 | Retention job | Partial (scripts/scheduler.ts runs it hourly; last run and failures in job_runs) |
 | WF-24 | Incident/restore | Not started |
 
 ## Requirement groups DEV / PM / FE / BE and Annexes C–K

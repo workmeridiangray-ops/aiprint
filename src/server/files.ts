@@ -1,7 +1,7 @@
 import sharp from 'sharp';
 import type { Metadata } from 'sharp';
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, writeFile, readFile } from 'node:fs/promises';
+import { mkdir, writeFile, readFile, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { getPool, AppError } from './db';
 import type { Actor } from './auth';
@@ -62,4 +62,12 @@ export async function readOriginal(actor: Actor, fileId: string) {
   if (!ok) for (const p of refs) if (p.org_id && p.visibility === 'shared' && (await canReadProject(getPool(), actor, p))) { ok = true; break; }
   if (!ok) throw new AppError('not_found', 'File not found', 404);
   return readFile(path.join(storageDir(), row.storage_key));
+}
+
+/** Deletes a live copy. A file that is already gone counts as deleted (safe to rerun after a crash). Any other failure is thrown. */
+export async function deleteStored(storageKey: string) {
+  const root = path.resolve(storageDir()); const target = path.resolve(root, storageKey);
+  if (!target.startsWith(root + path.sep)) throw new Error('storage key escapes the storage directory');
+  try { await unlink(target); }
+  catch (e: any) { if (e?.code !== 'ENOENT') throw e; }
 }
