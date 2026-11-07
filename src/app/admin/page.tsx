@@ -9,7 +9,7 @@ async function call(url: string, method: string, body?: unknown) {
 }
 const POLICY_NAMES: Record<string, string> = { terms: 'Terms', privacy: 'Privacy', refund: 'Refund policy', acceptable_use: 'Acceptable use' };
 export default function Admin() {
-  const [jobs, setJobs] = useState<any>(null); const [ov, setOv] = useState<any>(null); const [enq, setEnq] = useState<any[]>([]); const [runs, setRuns] = useState<any>(null); const [filter, setFilter] = useState('');
+  const [aud, setAud] = useState<any>(null); const [audQ, setAudQ] = useState<Record<string, string>>({}); const [jobs, setJobs] = useState<any>(null); const [ov, setOv] = useState<any>(null); const [enq, setEnq] = useState<any[]>([]); const [runs, setRuns] = useState<any>(null); const [filter, setFilter] = useState('');
   const [msg, setMsg] = useState(''); const [err, setErr] = useState(''); const [closing, setClosing] = useState<string | null>(null);
   async function load() {
     try {
@@ -18,6 +18,9 @@ export default function Admin() {
     } catch (e: any) { if (e.message === 'Not permitted') setErr('This area is for platform staff.'); else if (e.message !== 'auth') setErr(e.message); }
   }
   useEffect(() => { load(); }, [filter]);
+  async function searchAudit(more = false) {
+    setErr(''); try { const p = new URLSearchParams(Object.entries(audQ).filter(([, v]) => v)); if (more && aud?.nextBefore) p.set('before', String(aud.nextBefore)); const r = await call('/api/platform/audit?' + p, 'GET'); setAud(more && aud ? { rows: [...aud.rows, ...r.rows], nextBefore: r.nextBefore } : r); } catch (e: any) { if (e.message !== 'auth') setErr(e.message); }
+  }
   async function act(fn: () => Promise<unknown>, ok: string) { setMsg(''); setErr(''); try { await fn(); setMsg(ok); await load(); } catch (e: any) { if (e.message !== 'auth') setErr(e.message); } }
   const form = (fn: (f: FormData) => Promise<unknown>, ok: string) => (e: React.FormEvent<HTMLFormElement>) => { e.preventDefault(); const f = new FormData(e.currentTarget); act(() => fn(f), ok); };
   const owner = ov?.canEditSettings;
@@ -68,6 +71,16 @@ export default function Admin() {
           {jobs.waiting.length > 0 && <p className="muted">Oldest waiting: {Math.round(jobs.waiting[0].age_seconds / 60)} min ({jobs.waiting[0].tenant}).</p>}
           {jobs.failed.length > 0 && <table><thead><tr><th>Job</th><th>Store</th><th>Attempts</th><th>Last error</th><th>Finished</th></tr></thead><tbody>{jobs.failed.map((f: any) => <tr key={f.id}><td>{f.id.slice(0, 8)}</td><td>{f.tenant}</td><td>{f.attempts}</td><td>{f.last_error}</td><td>{new Date(f.finished_at).toLocaleString()}</td></tr>)}</tbody></table>}
           <p className="muted">Failed jobs released their funds; customers were not charged and can request a new price. No artwork or customer details are shown here.</p></>}</section>
+
+      <section className="card"><h2>Audit search</h2>
+        <form onSubmit={e => { e.preventDefault(); searchAudit(); }}><div className="grid">
+          <div><label htmlFor="aa">Action starts with</label><input id="aa" value={audQ.action ?? ''} onChange={e => setAudQ({ ...audQ, action: e.target.value })} placeholder="e.g. job. or auth." /></div>
+          <div><label htmlFor="at">Store</label><select id="at" value={audQ.tenantId ?? ''} onChange={e => setAudQ({ ...audQ, tenantId: e.target.value })}><option value="">All</option>{ov.tenants.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
+          <div><label htmlFor="ao">Outcome</label><input id="ao" value={audQ.outcome ?? ''} onChange={e => setAudQ({ ...audQ, outcome: e.target.value })} /></div>
+          <div><label htmlFor="af">From</label><input id="af" type="date" value={audQ.from ?? ''} onChange={e => setAudQ({ ...audQ, from: e.target.value })} /></div>
+          <div><label htmlFor="ato">Until (exclusive)</label><input id="ato" type="date" value={audQ.to ?? ''} onChange={e => setAudQ({ ...audQ, to: e.target.value })} /></div></div><button>Search</button></form>
+        {aud && (aud.rows.length === 0 ? <p className="muted">No matching records.</p> : <><table><thead><tr><th>When</th><th>Action</th><th>Outcome</th><th>Store</th><th>Who</th><th>Object</th><th>Ref</th></tr></thead><tbody>{aud.rows.map((r: any) => <tr key={r.id}><td>{new Date(r.at).toLocaleString()}</td><td>{r.action}</td><td>{r.outcome}</td><td>{r.tenant ?? '-'}</td><td>{r.actor ?? '-'}</td><td>{r.objectType ? `${r.objectType} ${String(r.objectId ?? '').slice(0, 8)}` : '-'}</td><td>{r.correlationId ?? ''}</td></tr>)}</tbody></table>{aud.nextBefore && <button type="button" onClick={() => searchAudit(true)}>Older records</button>}</>)}
+        <p className="muted">Searches are themselves recorded. Support sees user ids; only the platform owner sees email addresses.</p></section>
 
       <section className="card"><h2>Scheduled work</h2>
         {!runs || runs.runs.length === 0 ? <p className="muted">The scheduler has not recorded a run yet. If it should be running, check it.</p> : <table><thead><tr><th>Task</th><th>Last run</th><th>Result</th></tr></thead><tbody>{runs.runs.map((r: any) => <tr key={r.task}><td>{r.task.replace('_', ' ')}</td><td>{new Date(r.started_at).toLocaleString()}</td><td className={r.ok === false ? 'err' : ''}>{r.ok === null ? 'running or interrupted' : r.ok ? JSON.stringify(r.summary) : `Failed: ${r.error}`}</td></tr>)}</tbody></table>}

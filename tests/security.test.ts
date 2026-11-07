@@ -93,3 +93,20 @@ describe('upload inspection limits', () => {
     expect((await saveOriginal(u, await png())).colourProfile).toBe('untagged');
   });
 });
+
+describe('sign-in audit trail', () => {
+  it('records failed passwords and issued sessions without storing the email, password or token', async () => {
+    const { getPool } = await import('../src/server/db'); const { createUser, login } = await import('../src/server/auth');
+    const t = await mkTenant('Audit Auth'); const email = 'audit-auth@x.test';
+    await createUser(email, 'correct-horse-battery', t, 'customer');
+    const before = Number((await getPool().query("select count(*) n from audit_log where action like 'auth.%'")).rows[0].n);
+    await expect(login(email, 'wrong-password-123', 'src-a')).rejects.toMatchObject({ status: 401 });
+    await expect(login('nobody-here@x.test', 'wrong-password-123', 'src-a')).rejects.toMatchObject({ status: 401 });
+    const { token } = await login(email, 'correct-horse-battery', 'src-a');
+    const rows = (await getPool().query("select action, outcome, actor_user_id, object_type, object_id from audit_log where action like 'auth.%' order by id desc limit 3")).rows;
+    expect(Number((await getPool().query("select count(*) n from audit_log where action like 'auth.%'")).rows[0].n) - before).toBe(3);
+    expect(rows.map((r: any) => r.action).sort()).toEqual(['auth.password_failed', 'auth.password_failed', 'auth.session_issued']);
+    expect(rows.filter((r: any) => r.action === 'auth.password_failed' && r.actor_user_id === null)).toHaveLength(1); // unknown email: no actor, no email stored
+    expect(JSON.stringify(rows)).not.toContain(email); expect(JSON.stringify(rows)).not.toContain(token!);
+  });
+});

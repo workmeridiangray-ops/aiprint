@@ -199,3 +199,26 @@ describe('vendor overview', () => {
     await expect(V.overview(await mkActor(T, 'oc2@x.test', 'vendor_counter'))).rejects.toMatchObject({ code: 'denied' });
   });
 });
+
+describe('customer list (SC-024)', () => {
+  it('shows a store only its own people; counter staff see counter records only; search and paging work; no cross-store leak', async () => {
+    const V = await import('../src/server/vendor');
+    const t1 = await mkTenant('CL One'), t2 = await mkTenant('CL Two');
+    const a1 = await mkActor(t1, 'cl-a1@x.test', 'vendor_admin'), c1 = await mkActor(t1, 'cl-c1@x.test', 'vendor_counter'), a2 = await mkActor(t2, 'cl-a2@x.test', 'vendor_admin');
+    await mkActor(t1, 'cl-online1@x.test'); await mkActor(t2, 'cl-online2@x.test');
+    await V.createCounterCustomer(c1, 'Meena Walkin', '98400 00001'); await V.createCounterCustomer(c1, 'Ravi 100% Sure', 'ravi@x.test'); await V.createCounterCustomer(await mkActor(t2, 'cl-c2@x.test', 'vendor_counter'), 'Other Store Person');
+    const all = await V.listCustomers(a1);
+    const names = all.rows.map(r => r.name);
+    expect(names).toEqual(expect.arrayContaining(['cl-online1@x.test', 'Meena Walkin', 'Ravi 100% Sure']));
+    expect(names).not.toContain('cl-online2@x.test'); expect(names).not.toContain('Other Store Person');
+    const counter = await V.listCustomers(c1); expect(counter.rows.every(r => r.kind === 'counter')).toBe(true); expect(counter.rows.map(r => r.name)).not.toContain('cl-online1@x.test');
+    expect((await V.listCustomers(a1, { q: 'meena' })).rows.map(r => r.name)).toEqual(['Meena Walkin']);
+    expect((await V.listCustomers(a1, { q: '100%' })).rows.map(r => r.name)).toEqual(['Ravi 100% Sure']); // % is literal, not a wildcard
+    expect((await V.listCustomers(a1, { q: '%' })).rows.map(r => r.name)).toEqual(['Ravi 100% Sure']);
+    const p1 = await V.listCustomers(a1, { limit: 2 }); expect(p1.rows).toHaveLength(2); expect(p1.nextCursor).toBeTruthy();
+    const p2 = await V.listCustomers(a1, { limit: 2, cursor: p1.nextCursor! }); expect([...p1.rows, ...p2.rows].map(r => r.id)).toEqual(all.rows.slice(0, p1.rows.length + p2.rows.length).map(r => r.id));
+    expect((await V.listCustomers(a2)).rows.map(r => r.name)).toEqual(expect.arrayContaining(['cl-online2@x.test', 'Other Store Person']));
+    await expect(V.listCustomers(await mkActor(t1, 'cl-cust@x.test'))).rejects.toMatchObject({ status: 403 });
+    await expect(V.listCustomers(a1, { cursor: 'bad' })).rejects.toMatchObject({ code: 'invalid_filter' });
+  });
+});

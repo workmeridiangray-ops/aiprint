@@ -33,7 +33,7 @@ export async function login(email: string, password: string, source = 'unknown')
     await lockKey(c, k); await assertNotLocked(c, k);
     const r = await c.query("select id,password_hash,mfa_enabled_at from users where lower(email)=lower($1) and status='active' and email_verified_at is not null", [email.trim()]);
     const ok = r.rowCount ? verifyPassword(password, r.rows[0].password_hash) : (verifyPassword(password, 'scrypt$00$00'), false);
-    if (!ok) { await recordFailure(c, k); return null; } // commit the failure, reject below
+    if (!ok) { await recordFailure(c, k); await c.query("insert into audit_log(actor_user_id,action,object_type,outcome) values($1,'auth.password_failed','user','denied')", [r.rowCount ? r.rows[0].id : null]); return null; } // the attempted email is not stored // commit the failure, reject below
     const u = r.rows[0];
     // With two-step on, a correct password must NOT clear the count: otherwise a stolen password could farm unlimited code guesses.
     if (u.mfa_enabled_at) return { userId: u.id as string, challenge: await createChallenge(c, u.id), enrolOnly: false, needsSession: false };

@@ -245,6 +245,7 @@ Generated from the migrated development database (40 tables). Migrations in /mig
 - monthly_price_paise bigint not null
 - created_by uuid
 - created_at timestamp with time zone not null
+- storage_mb integer
 - references: created_by -> users
 
 ### platform_pricing

@@ -268,3 +268,31 @@ export async function overview(actor: Actor) {
     subscription: sub.rows[0] ?? null, processingCredit: acc.rowCount ? await balance(acc.rows[0].id) : { settled: 0, held: 0, available: 0 },
   };
 }
+
+/** SC-024: a store's own customers. Vendor admin sees online accounts and counter records; counter staff see counter records only. Never returns artwork, balances or other stores' people. */
+export async function listCustomers(actor: Actor, f: { q?: string; cursor?: string; limit?: number } = {}) {
+  need(actor, ['vendor_admin', 'vendor_counter']);
+  const limit = Math.min(Math.max(f.limit ?? 50, 1), 200);
+  const like = f.q ? '%' + f.q.trim().slice(0, 80).replace(/[%_\\]/g, m => '\\' + m) + '%' : null;
+  let cAt: string | null = null, cId: string | null = null;
+  if (f.cursor) { const m = /^([^|]+)\|([0-9a-f-]{36})$/.exec(f.cursor); if (!m || Number.isNaN(Date.parse(m[1]))) throw new AppError('invalid_filter', 'Invalid page marker', 400); cAt = m[1]; cId = m[2]; }
+  const online = actor.role === 'vendor_admin';
+  const r = await getPool().query(`select * from (
+      ${online ? `select 'online'::text as kind, u.id, u.email as label, null::text as contact, m.created_at,
+         (select count(*)::int from projects p join quotes q on q.project_id=p.id join reservations rs on rs.quote_id=q.id join jobs j on j.reservation_id=rs.id where p.owner_user_id=u.id and p.tenant_id=$1) as jobs,
+         u.closed_at is not null as closed
+       from memberships m join users u on u.id=m.user_id where m.tenant_id=$1 and m.role='customer' and m.revoked_at is null
+       union all` : ''}
+      select 'counter'::text as kind, c.id, c.name as label, c.contact, c.created_at,
+         (select count(*)::int from projects p join quotes q on q.project_id=p.id join reservations rs on rs.quote_id=q.id join jobs j on j.reservation_id=rs.id where p.counter_customer_id=c.id) as jobs, false as closed
+       from counter_customers c where c.tenant_id=$1
+    ) x where ($2::text is null or x.label ilike $2 or x.contact ilike $2)
+      and ($3::timestamptz is null or (x.created_at, x.id) < ($3::timestamptz, $4::uuid))
+    order by x.created_at desc, x.id desc limit $5`, [actor.tenantId, like, cAt, cId, limit + 1]);
+  const rows = r.rows.slice(0, limit);
+  const last = rows[rows.length - 1];
+  return {
+    rows: rows.map(x => ({ kind: x.kind as 'online' | 'counter', id: x.id as string, name: x.label as string, contact: x.contact as string | null, since: new Date(x.created_at).toISOString(), jobs: x.jobs as number, closed: !!x.closed })),
+    nextCursor: r.rows.length > limit ? `${new Date(last.created_at).toISOString()}|${last.id}` : null,
+  };
+}

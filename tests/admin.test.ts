@@ -76,3 +76,25 @@ describe('job problems list', () => {
     expect(JSON.stringify(r)).not.toMatch(/Secret wedding|@x\.test/);
   });
 });
+
+describe('audit search', () => {
+  it('is staff-only, filters, paginates newest first, audits itself, and hides emails from support', async () => {
+    const { searchAudit } = await import('../src/server/admin'); const { audit } = await import('../src/server/identity'); const pool = getPool();
+    const owner = await mkActor(PT, 'as-own@x.test', 'platform_owner'); const sup = await mkActor(PT, 'as-sup@x.test', 'platform_support');
+    for (const role of ['customer', 'vendor_admin'] as const) await expect(searchAudit(await mkActor(VT, `as-${role}@x.test`, role), {})).rejects.toMatchObject({ status: 403 });
+    for (let i = 0; i < 5; i++) await audit(pool, { actor: owner.userId, tenant: VT, action: 'zz.test_event', type: 'thing', id: 'id' + i, outcome: i % 2 ? 'ok' : 'denied' });
+    await audit(pool, { actor: owner.userId, tenant: VT, action: 'zzxtest', outcome: 'ok' }); // must not match the escaped prefix "zz.test"
+    const all = await searchAudit(owner, { action: 'zz.test' }); expect(all.rows).toHaveLength(5); expect(all.rows.every(r => r.action === 'zz.test_event')).toBe(true);
+    expect(all.rows.map(r => r.id)).toEqual([...all.rows.map(r => r.id)].sort((a, b) => b - a));
+    expect((await searchAudit(owner, { action: 'zz.test', outcome: 'denied' })).rows).toHaveLength(3);
+    expect((await searchAudit(owner, { action: 'zz.test', tenantId: PT })).rows).toHaveLength(0);
+    const p1 = await searchAudit(owner, { action: 'zz.test', limit: 2 }); expect(p1.rows).toHaveLength(2); expect(p1.nextBefore).toBeTruthy();
+    const p2 = await searchAudit(owner, { action: 'zz.test', limit: 2, before: p1.nextBefore! }); expect(p2.rows).toHaveLength(2); expect(p2.rows[0].id).toBeLessThan(p1.rows[1].id);
+    expect(all.rows[0].actor).toBe('as-own@x.test'); expect((await searchAudit(sup, { action: 'zz.test' })).rows[0].actor).toMatch(/^[0-9a-f]{8}$/);
+    expect((await searchAudit(owner, { action: 'audit.search' })).rows.length).toBeGreaterThan(0); // searching is recorded
+    expect((await searchAudit(owner, { action: 'zz.test', from: '2999-01-01' })).rows).toHaveLength(0);
+    await expect(searchAudit(owner, { action: "x'; drop table users; --" })).rejects.toMatchObject({ code: 'invalid_filter' });
+    await expect(searchAudit(owner, { tenantId: 'nope' })).rejects.toMatchObject({ code: 'invalid_filter' });
+    await expect(searchAudit(owner, { from: 'not a date' })).rejects.toMatchObject({ code: 'invalid_filter' });
+  });
+});

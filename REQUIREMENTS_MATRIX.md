@@ -33,7 +33,7 @@ Totals (refreshed in the gap pass): 75 surfaces; 54 partial, 2 blocked, 19 not s
 | SC-021 | Branding and portal setup | Partial | PATCH /api/vendor/branding; GET /api/portal/[slug] (public branding only); /vendor Branding | tests/vendor.test.ts; browser run | No logo upload; no portal page that applies branding; no website-entry widget |
 | SC-022 | Subscription checkout and history | Blocked | Subscription state machine; activateSubscription (internal, idempotent); scheduler.ts | tests/vendor.test.ts | Hosted checkout and verified payment events need the payment provider; no history UI; plan change is API only |
 | SC-023 | Vendor overview | Partial | /vendor overview; GET /api/vendor/overview | tests/vendor.test.ts; browser run | Basic counts only; no charts or date ranges |
-| SC-024 | Customers and customer detail | Not started | - | - | Not implemented |
+| SC-024 | Customers and customer detail | Partial | /vendor/customers; GET /api/vendor/customers (vendor admin: online accounts + counter records; counter staff: counter records only; search, paging) | tests/vendor.test.ts; tests/e2e/audit-customers-flow.cjs (Playwright 2026-11-07) | List only: no customer detail page, no edit, no merge. Shows name or email, contact, since, job count; no artwork or balances |
 | SC-025 | Vendor staff and roles | Partial | /vendor Staff table: role change, remove, invite; seat limits | tests/vendor.test.ts; browser run | Invite email delivery not wired; no resend; no bulk archive |
 | SC-026 | Service retail prices | Partial | /vendor Customer prices; PUT /api/vendor/pricing; platform pricing POST /api/platform/pricing | tests/vendor.test.ts; browser run | Per-megapixel + minimum only; no per-service/format/enhancement prices; no price history view; no platform admin UI |
 | SC-027 | Counter project | Partial | /counter step 1-2 (customer, upload, price) | tests/vendor.test.ts; browser run | No customer search/reuse; fixed 300 dpi/3 mm bleed/PDF in the counter form; no editor on counter path |
@@ -79,7 +79,7 @@ Totals (refreshed in the gap pass): 75 surfaces; 54 partial, 2 blocked, 19 not s
 | SC-067 | Beneficiary review | Not started | - | - | Not implemented |
 | SC-068 | Settlement run | Not started | - | - | Not implemented |
 | SC-069 | Financial exception detail | Not started | - | - | Not implemented |
-| SC-070 | Audit search | Not started | - | - | Not implemented |
+| SC-070 | Audit search | Partial | /admin Audit search; GET /api/platform/audit (staff only; action prefix, store, outcome, date range, paging; searches are audited; support sees user ids, owner sees emails) | tests/admin.test.ts; tests/e2e/audit-customers-flow.cjs | Only actions that are written to the audit log can be found. Not audited today: project saves and edits, quote creation, failed MFA codes and lockouts, logouts, file uploads. Audit rows are not tamper-proof (no append-only trigger on audit_log) |
 | SC-071 | Retention and deletion requests | Partial | Customer delete (links stop at once; live copy purged by the next run); staff holds; metadata and ledger kept; "Deleting my files or data" ticket category; account closure purge | tests/retention.test.ts; tests/account.test.ts | No purge of temporary processing files; no deletion for already-shared org copies beyond owner |
 | SC-072 | Service health and alerts | Partial | /admin health: jobs, Redis, storage, scheduler last runs | tests/admin.test.ts; tests/queue.test.ts | No alerting, no backup-failure or callback panels |
 | SC-073 | Configuration and notifications | Not started | - | - | Not implemented |
@@ -172,7 +172,7 @@ Status is the weakest honest summary of the screens each group maps to.
 | F-12 | Payments and credit ledger | Blocked | Append-only ledger built; no provider, no reconciliation |
 | F-13 | Refunds and corrections | Not started | Blocked on provider; no correction tool |
 | F-14 | Beneficiaries and settlements | Not started | Blocked on provider |
-| F-15 | Reports, exports, audit | Partial | Customer data export; audit rows written for some actions; no audit search, no vendor reports |
+| F-15 | Reports, exports, audit | Partial | Customer data export; audit search for staff; customer list for vendors; sign-in and password failures now audited; no vendor reports, audit coverage incomplete |
 | F-16 | Support and escalations | Partial | Built; no attachments |
 | F-17 | Closure, deletion, incidents | Partial | Customer closure and deletion built; vendor closure, incident register not built; backup/restore proven locally only |
 | F-18 | Release, monitoring, handover | Partial | Docs, runbooks, health panel; no alerts, no deployed environment, restore drill run locally only |

@@ -1,6 +1,7 @@
 import { getPool, AppError } from './db';
 import type { Actor } from './auth';
 import { POLICY_SLUGS } from './public';
+import { audit } from './identity';
 
 const STAFF = ['platform_owner', 'platform_support'];
 /** Read-only operations overview for platform staff. Contains no customer artwork, files, balances or policy bodies. Owner-only settings are marked so the UI can hide edit forms from support. */
@@ -56,4 +57,27 @@ export async function jobProblems(actor: Actor) {
     where j.status='queued' order by j.created_at limit 20`);
   const expired = (await q(`select count(*)::int n from jobs where status='cancelled' and last_error like 'Not started in time%'`))[0].n as number;
   return { failed, stuck, waiting, holdsExpired: expired };
+}
+
+export type AuditQuery = { action?: string; tenantId?: string; outcome?: string; from?: string; to?: string; before?: number; limit?: number };
+/** SC-070: staff audit search. Newest first, keyset pagination by id. Searching is itself audited. Only the owner sees actor email addresses; support sees user ids. */
+export async function searchAudit(actor: Actor, f: AuditQuery) {
+  if (!STAFF.includes(actor.role)) throw new AppError('denied', 'Not permitted', 403);
+  const where: string[] = []; const args: unknown[] = []; const add = (sql: string, v: unknown) => { args.push(v); where.push(sql.replace('?', '$' + args.length)); };
+  if (f.action) { if (!/^[a-z0-9_.-]{1,60}$/i.test(f.action)) throw new AppError('invalid_filter', 'Action may contain letters, digits, dot, dash and underscore', 400); add("a.action like ?", f.action.replace(/[%_\\]/g, m => '\\' + m) + '%'); }
+  if (f.tenantId) { if (!/^[0-9a-f-]{36}$/i.test(f.tenantId)) throw new AppError('invalid_filter', 'Invalid store id', 400); add('a.tenant_id = ?', f.tenantId); }
+  if (f.outcome) { if (!/^[a-z0-9_.-]{1,40}$/i.test(f.outcome)) throw new AppError('invalid_filter', 'Invalid outcome', 400); add('a.outcome = ?', f.outcome); }
+  for (const [k, sql] of [['from', 'a.at >= ?'], ['to', 'a.at < ?']] as const) { const v = f[k]; if (v) { if (Number.isNaN(Date.parse(v))) throw new AppError('invalid_filter', `Invalid ${k} date`, 400); add(sql, new Date(v).toISOString()); } }
+  if (f.before !== undefined) { if (!Number.isInteger(f.before) || f.before < 1) throw new AppError('invalid_filter', 'Invalid page marker', 400); add('a.id < ?', f.before); }
+  const limit = Math.min(Math.max(f.limit ?? 50, 1), 200);
+  args.push(limit + 1);
+  const r = await getPool().query(`select a.id, a.at, a.action, a.object_type, a.object_id, a.outcome, a.correlation_id, a.tenant_id, t.name as tenant, a.actor_user_id, u.email as actor_email
+    from audit_log a left join tenants t on t.id=a.tenant_id left join users u on u.id=a.actor_user_id ${where.length ? 'where ' + where.join(' and ') : ''} order by a.id desc limit $${args.length}`, args);
+  const rows = r.rows.slice(0, limit);
+  await audit(getPool(), { actor: actor.userId, tenant: actor.tenantId, action: 'audit.search', outcome: 'ok' });
+  return {
+    rows: rows.map(x => ({ id: Number(x.id), at: new Date(x.at).toISOString(), action: x.action as string, objectType: x.object_type as string | null, objectId: x.object_id as string | null, outcome: x.outcome as string, correlationId: x.correlation_id as string | null,
+      tenant: x.tenant as string | null, actor: x.actor_user_id ? (actor.role === 'platform_owner' ? (x.actor_email as string | null) ?? x.actor_user_id : (x.actor_user_id as string).slice(0, 8)) : null })),
+    nextBefore: r.rows.length > limit ? Number(rows[rows.length - 1].id) : null,
+  };
 }
