@@ -64,6 +64,7 @@ export default function Admin() {
 
       <section className="card"><h2>Scheduled work</h2>
         {!runs || runs.runs.length === 0 ? <p className="muted">The scheduler has not recorded a run yet. If it should be running, check it.</p> : <table><thead><tr><th>Task</th><th>Last run</th><th>Result</th></tr></thead><tbody>{runs.runs.map((r: any) => <tr key={r.task}><td>{r.task.replace('_', ' ')}</td><td>{new Date(r.started_at).toLocaleString()}</td><td className={r.ok === false ? 'err' : ''}>{r.ok === null ? 'running or interrupted' : r.ok ? JSON.stringify(r.summary) : `Failed: ${r.error}`}</td></tr>)}</tbody></table>}
+        {runs?.email && <p className={!runs.email.configured || runs.email.failed > 0 ? 'err' : 'muted'}>Email: {runs.email.configured ? `${runs.email.pending} waiting${runs.email.pending ? ` (oldest ${runs.email.oldestPendingMinutes} min)` : ''}, ${runs.email.failed} failed` : `NOT BEING SENT. ${runs.email.blockedReason}. ${runs.email.pending} message(s) are waiting.`}</p>}
         {runs?.outputsFailingPurge > 0 && <p className="err">{runs.outputsFailingPurge} file(s) failed to purge and will be retried.</p>}</section></>}
   </main>;
 }
