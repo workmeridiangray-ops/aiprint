@@ -57,13 +57,13 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | SC-045 | Downloads and versions | Partial | /library lists every finished file (state, days left), free re-download while retained, expired/removed shown clearly; GET /api/outputs/[id]/download | tests/retention.test.ts; tests/worker.test.ts; tests/e2e/library-flow.cjs (Playwright, 2026-11-07) | No CMYK; no per-project version cap/archive yet; each job produces one file, no version grouping |
 | SC-046 | Customer transactions | Partial | /library "Credit and charges" (own records only: held/charged/released, personal credit balance) | tests/retention.test.ts | No top-ups or refunds (payment provider blocked); organisation members see their own jobs only |
 | SC-047 | Profile and security | Not started | - | - | Not implemented |
-| SC-048 | Account export and closure | Not started | - | - | Not implemented |
+| SC-048 | Account export and closure | Partial | /account/data; /api/account/export, /api/account/closure; own-data JSON export (7-day link, owner-only, audited, staff notes excluded); closure blocked by running jobs, held funds, leftover credit, organisation admin; password (+code if two-step) re-check; access stops at once; files deleted after 7 days unless held; money, tickets, audit kept | tests/account.test.ts; tests/e2e/support-flow.cjs (Playwright, 2026-11-07) | Customer accounts only. A credit balance blocks closure and nothing can refund it yet (payments blocked). No reopen-by-owner approval, no business-admin export of org data, 7-day delay and 24 h export reuse are my assumptions |
 | SC-049 | Organisation profile | Partial | /business (create); PATCH /api/orgs/[id] | tests/business.test.ts; tests/e2e/business-flow.cjs (Playwright, 2026-11-07) | Profile edit has an API but no form on the page; billing contact stored only; store context implicit (one store per organisation) |
 | SC-050 | Members and sharing | Partial | /business members table, invite, remove, make admin; /business/join; project share checkbox in editor; POST /api/orgs/[id]/invite|transfer, DELETE /api/orgs/[id]/members/[mid], PATCH /api/projects/[id]/visibility | tests/business.test.ts; tests/e2e/business-flow.cjs (Playwright, 2026-11-07) | Sharing is whole-organisation read-only (no per-person sharing); no invite resend/revoke UI; no reassignment of a removed member's organisation projects (they become inaccessible; admin sees charges only) |
 | SC-051 | Member spending limits | Partial | /business monthly limit inputs; PATCH /api/orgs/[id]/members/[mid] | tests/business.test.ts; tests/e2e/business-flow.cjs (Playwright, 2026-11-07) | Month = calendar month in IST (assumption, not in R3). Usage counts reservations created that month |
 | SC-052 | Business usage report | Partial | /business usage table; GET /api/orgs/[id]/usage[?format=csv] (admin only, audited, formula-safe) | tests/business.test.ts; tests/e2e/business-flow.cjs (Playwright, 2026-11-07) | CSV is generated synchronously, not as a queued export with permission recheck; no date/member filter controls in the UI; no pagination (5000-row cap) |
-| SC-053 | Ticket list and create | Not started | - | - | Not implemented |
-| SC-054 | Ticket detail and escalation | Not started | - | - | Not implemented |
+| SC-053 | Ticket list and create | Partial | /support; POST /api/support; links only to records the requester can read; categories; role-scoped list | tests/support.test.ts; tests/e2e/support-flow.cjs | No attachments. No filters beyond status in the API |
+| SC-054 | Ticket detail and escalation | Partial | /support/[id]; reply, staff note, assign, escalate (reason + named platform owner), resolve (resolution + evidence), reopen, close; auto-close after 7 days | tests/support.test.ts; tests/e2e/support-flow.cjs | No attachments or evidence upload; evidence is text. Reopen window (14 days) and limit (3) are my assumptions |
 | SC-055 | Platform overview | Not started | - | - | Not implemented |
 | SC-056 | Tenant list and review | Not started | - | - | Not implemented |
 | SC-057 | Direct store workspace | Not started | - | - | Not implemented |
@@ -80,7 +80,7 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | SC-068 | Settlement run | Not started | - | - | Not implemented |
 | SC-069 | Financial exception detail | Not started | - | - | Not implemented |
 | SC-070 | Audit search | Not started | - | - | Not implemented |
-| SC-071 | Retention and deletion requests | Partial | Customer delete (links stop at once; live copy purged by the next run); staff holds; metadata and ledger kept | tests/retention.test.ts | No support-ticket path for requests, no purge of temporary processing files, no deletion for already-shared org copies beyond owner |
+| SC-071 | Retention and deletion requests | Partial | Customer delete (links stop at once; live copy purged by the next run); staff holds; metadata and ledger kept; "Deleting my files or data" ticket category; account closure purge | tests/retention.test.ts; tests/account.test.ts | No purge of temporary processing files; no deletion for already-shared org copies beyond owner |
 | SC-072 | Service health and alerts | Not started | - | - | Not implemented |
 | SC-073 | Configuration and notifications | Not started | - | - | Not implemented |
 | SC-074 | Recovery and incident register | Not started | - | - | Not implemented |
@@ -90,7 +90,7 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 
 | ID | Scenario (abridged) | Status | Evidence / gap |
 |---|---|---|---|
-| AT-01 | Other-tenant IDs in list/detail/file/ticket/export requests return no records or protected content | Partial | Tested for project, file, quote. Tickets/exports/lists not built |
+| AT-01 | Other-tenant IDs in list/detail/file/ticket/export requests return no records or protected content | Partial | Tested for project, file, quote. Tickets (view, reply, note, assign, escalate) and export download tested for other-tenant/other-user denial |
 | AT-02 | Revoked staff membership loses new-request access; queued export checks permission again | Partial | Revoked membership loses access: tested. Queued-export recheck not built |
 | AT-03 | Finance can inspect charge references without gaining artwork access; customer never receives proces | Not started | No test |
 | AT-04 | Invalid/oversized/corrupt upload creates no executable source or paid operation; error explains corr | Partial | Format/size/pixel/corrupt checks tested. Quarantine/scan pipeline not built |
@@ -119,7 +119,7 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | AT-27 | Complete clean build, deploy and recovery steps work from handover; production secrets absent from r | Not started | No test |
 | AT-28 | Public 12 page types, policies, enquiry success/failure and technical SEO controls present; no test  | Partial | 12 public pages, technical SEO (titles, descriptions, sitemap, robots), enquiry success and failure tested in a browser. Policy text and client copy review outstanding; no test/fabricated data shown |
 | AT-29 | Invite/reset token expiry and reuse denied; last tenant/business/platform admin cannot be removed wi | Partial | Token expiry/reuse and last-admin tested for vendor tenants. MFA recovery tested (assisted reset: self-reset refused, cross-tenant refused, reason required, sessions revoked). Business/platform last-admin protection still not built |
-| AT-30 | Ticket escalation preserves references, hides internal notes and requires accountable owner plus clo | Not started | No test |
+| AT-30 | Ticket escalation preserves references, hides internal notes and requires accountable owner plus closure evidence | Partial | Tested: link travels but file access does not, internal notes and escalation reason hidden from requester, named platform owner required, resolution needs evidence, payment ticket cannot be resolved while money/job unsettled | tests/support.test.ts | Attachments not built |
 
 ## Workflows WF-01â€“WF-24
 
@@ -147,8 +147,8 @@ All **Not started** except where noted: WF-03 (customer starts project: upload â
 | WF-18 | Beneficiary changes | Not started |
 | WF-19 | Subscription renewal/change | Partial |
 | WF-20 | Suspension/downgrade | Not started |
-| WF-21 | Support escalation | Not started |
-| WF-22 | Closure/deletion | Not started |
+| WF-21 | Support escalation | Partial (create, assign, request information, escalate, resolve with evidence, close; tests/support.test.ts). No attachments; emails carry reference only |
+| WF-22 | Closure/deletion | Partial (customer: request, reconcile, export, confirm, revoke, scheduled purge, holds; tests/account.test.ts). Vendor closure not built; no finance settlement step because refunds are blocked |
 | WF-23 | Retention job | Partial (scripts/scheduler.ts runs it hourly; last run and failures in job_runs) |
 | WF-24 | Incident/restore | Not started |
 

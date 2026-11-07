@@ -75,7 +75,7 @@ export async function confirmEnrolment(actor: Actor, code: string, nowMs = Date.
   });
 }
 /** Verifies a current TOTP for an already-signed-in user (used before sensitive MFA changes). Not replayable. */
-async function proveTotp(c: { query: Function }, userId: string, code: string) {
+export async function proveTotp(c: { query: Function }, userId: string, code: string) {
   const u = (await c.query('select mfa_secret, mfa_last_step from users where id=$1 for update', [userId])).rows[0];
   if (!u?.mfa_secret) throw new AppError('not_enabled', 'Two-step sign-in is not on', 409);
   const step = matchTotp(open(u.mfa_secret), String(code ?? '').trim());

@@ -19,7 +19,7 @@ export default function Library() {
       rows.map(o => <div className="card" key={o.id}>
         <strong>{o.projectName}</strong> <span className="muted">{o.format.toUpperCase()} · {o.widthPx}×{o.heightPx}px · made {new Date(o.createdAt).toLocaleDateString()}{o.mine ? '' : ' · shared with you'}</span>
         <div className={o.state === 'expiring' ? 'err' : 'muted'} data-state={o.state}>{note(o)}</div>
-        <div className="bar">{(o.state === 'available' || o.state === 'expiring') && <a href={`/api/outputs/${o.id}/download`}>Download</a>}
+        <div className="bar">{(o.state === 'available' || o.state === 'expiring') && <a href={`/api/outputs/${o.id}/download`}>Download</a>}<a href={`/support?type=output&id=${o.id}`}>Get help with this file</a>
           {o.mine && (o.state === 'available' || o.state === 'expiring' || o.state === 'expired') && (confirm === o.id
             ? <><span>Delete this file? It cannot be recovered. Your payment record stays.</span><button onClick={() => remove(o.id)}>Yes, delete</button><button onClick={() => setConfirm(null)}>Keep</button></>
             : <button onClick={() => setConfirm(o.id)}>Delete file</button>)}</div></div>)}
