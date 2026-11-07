@@ -6,6 +6,7 @@ import { require as authorize } from './policy';
 import { validateSettings, outputPixels } from './projects';
 import { ensureAccount, ensureOrgAccount, available } from './ledger';
 import { canReadProject, monthUsage } from './org';
+import { assertEnhanceUsable } from './enhance';
 import { priceFor, canProcess } from './vendor';
 import { notifyJob } from './queue';
 
@@ -20,6 +21,7 @@ export async function createQuote(actor: Actor, projectId: string) {
     catch { throw new AppError('not_found', 'Project not found', 404); }
     if (!p.source_file_id) throw new AppError('no_source', 'Add an image before requesting a price');
     const settings = validateSettings(p.settings);
+    if (settings.enhance !== 'off') { const sf = (await c.query('select width_px, height_px from stored_files where id=$1', [p.source_file_id])).rows[0]; await assertEnhanceUsable(settings.enhance, sf.width_px, sf.height_px); }
     const { customer, vendor, retailId, platformId } = await priceFor(c, p.tenant_id, outputPixels(settings).total);
     const q = await c.query(
       `insert into quotes(tenant_id,project_id,project_revision,source_file_id,settings_snapshot,customer_amount_paise,vendor_charge_paise,pricing_version,channel,retail_pricing_id,platform_pricing_id,expires_at)

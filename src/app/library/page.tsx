@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-type L = { id: string; projectName: string; format: string; widthPx: number; heightPx: number; createdAt: string; expiresAt: string; state: 'available' | 'expiring' | 'expired' | 'removed'; daysLeft: number | null; mine: boolean };
+type L = { id: string; projectName: string; format: string; colour: string; widthPx: number; heightPx: number; createdAt: string; expiresAt: string; state: 'available' | 'expiring' | 'expired' | 'removed'; daysLeft: number | null; mine: boolean };
 type T = { personalCredit: { settled: number; held: number; available: number }; rows: { date: string; project: string; amountPaise: number; status: string; paidFrom: string }[] };
 const rs = (p: number) => `₹${(p / 100).toFixed(2)}`;
 export default function Library() {
@@ -15,10 +15,11 @@ export default function Library() {
   async function download(id: string) { setErr(''); const r = await fetch(`/api/outputs/${id}/link`, { method: 'POST' }); const b = await r.json(); if (!r.ok) { setErr(b.message); return; } location.href = b.url; }
   async function remove(id: string) { const r = await fetch(`/api/library/${id}`, { method: 'DELETE' }); setConfirm(null); if (!r.ok) setErr((await r.json()).message); else load(); }
   const note = (o: L) => o.state === 'available' ? `Available for ${o.daysLeft} more days` : o.state === 'expiring' ? `Expires in ${o.daysLeft} day${o.daysLeft === 1 ? '' : 's'}. Download it now to keep a copy.` : o.state === 'expired' ? 'Expired: the file is past its 90-day retention period and is no longer available.' : 'Removed.';
-  return <main><h1>Your files</h1><p className="muted">Finished files are kept for 90 days, and you can re-download them free during that time.</p><p role="alert" className="err">{err}</p>
+  return <main><h1>Your files</h1><p className="muted">Finished files are kept for 90 days, and you can re-download them free during that time. Thumbnails are watermarked previews; the download is the clean file.</p><p role="alert" className="err">{err}</p>
     {rows === null ? <p className="muted">Loading…</p> : rows.length === 0 ? <div className="card">No finished files yet. Files appear here once a job completes.</div> :
       rows.map(o => <div className="card" key={o.id}>
-        <strong>{o.projectName}</strong> <span className="muted">{o.format.toUpperCase()} · {o.widthPx}×{o.heightPx}px · made {new Date(o.createdAt).toLocaleDateString()}{o.mine ? '' : ' · shared with you'}</span>
+        {(o.state === 'available' || o.state === 'expiring') && <img src={`/api/outputs/${o.id}/preview`} alt={`Watermarked preview of ${o.projectName}`} width={120} loading="lazy" style={{ float: 'right', maxWidth: '35%', height: 'auto', marginLeft: 12, border: '1px solid var(--line, #ccc)' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />}
+        <strong>{o.projectName}</strong> <span className="muted">{o.format.toUpperCase()}{o.colour === 'cmyk' ? ' CMYK' : ''} · {o.widthPx}×{o.heightPx}px · made {new Date(o.createdAt).toLocaleDateString()}{o.mine ? '' : ' · shared with you'}</span>
         <div className={o.state === 'expiring' ? 'err' : 'muted'} data-state={o.state}>{note(o)}</div>
         <div className="bar">{(o.state === 'available' || o.state === 'expiring') && <button type="button" onClick={() => download(o.id)}>Download</button>}<a href={`/support?type=output&id=${o.id}`}>Get help with this file</a>
           {o.mine && (o.state === 'available' || o.state === 'expiring' || o.state === 'expired') && (confirm === o.id

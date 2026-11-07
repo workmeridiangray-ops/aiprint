@@ -1,6 +1,6 @@
 # Data model
 
-Generated from the migrated development database (40 tables). Migrations in /migrations are the source of truth.
+Generated from the migrated development database (41 tables). Migrations in /migrations are the source of truth.
 
 ### account_requests
 - id uuid not null
@@ -217,6 +217,14 @@ Generated from the migrated development database (40 tables). Migrations in /mig
 - created_at timestamp with time zone not null
 - references: tenant_id -> tenants; created_by -> users
 
+### output_previews
+- output_id uuid not null
+- jpeg bytea not null
+- width_px integer not null
+- height_px integer not null
+- created_at timestamp with time zone not null
+- references: output_id -> outputs
+
 ### outputs
 - id uuid not null
 - job_id uuid not null
@@ -234,6 +242,7 @@ Generated from the migrated development database (40 tables). Migrations in /mig
 - purged_at timestamp with time zone
 - purge_attempts integer not null
 - purge_error text
+- colour text not null
 - references: job_id -> jobs; tenant_id -> tenants; owner_user_id -> users; file_id -> stored_files
 
 ### plans

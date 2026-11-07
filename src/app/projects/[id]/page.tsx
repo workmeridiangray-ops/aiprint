@@ -2,8 +2,8 @@
 import { useEffect, useRef, useState, use, useCallback } from 'react';
 import { placement, dpiLevel, LOW_DPI_WARN } from '@/lib/geometry';
 
-type S = { widthMm: number; heightMm: number; bleedMm: number; dpi: number; fit: 'fit' | 'fill'; format: 'png' | 'jpg' | 'tiff' | 'pdf'; offsetXMm: number; offsetYMm: number; rotationDeg: number; scale: number };
-const DEF: S = { widthMm: 210, heightMm: 297, bleedMm: 3, dpi: 300, fit: 'fill', format: 'png', offsetXMm: 0, offsetYMm: 0, rotationDeg: 0, scale: 1 };
+type S = { widthMm: number; heightMm: number; bleedMm: number; dpi: number; fit: 'fit' | 'fill'; format: 'png' | 'jpg' | 'tiff' | 'pdf'; colour: 'rgb' | 'cmyk'; enhance: 'off' | '2x' | '4x'; offsetXMm: number; offsetYMm: number; rotationDeg: number; scale: number };
+const DEF: S = { widthMm: 210, heightMm: 297, bleedMm: 3, dpi: 300, fit: 'fill', format: 'png', colour: 'rgb', enhance: 'off', offsetXMm: 0, offsetYMm: 0, rotationDeg: 0, scale: 1 };
 const PRESETS: Record<string, [number, number]> = { 'A4 (210 × 297)': [210, 297], 'A5 (148 × 210)': [148, 210], 'A6 (105 × 148)': [105, 148], 'Business card (90 × 55)': [90, 55], 'Poster A3 (297 × 420)': [297, 420] };
 const SAFE_MM = 3;
 type Save = 'saved' | 'saving' | 'unsaved' | 'error' | 'conflict' | 'offline';
@@ -60,7 +60,14 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
     past.current.push(d.start); if (past.current.length > 100) past.current.shift(); future.current = []; scheduleSave(sRef.current); bump(x => x + 1);
   }
   const geo = imgInfo ? placement(imgInfo.w, imgInfo.h, s) : null;
-  const eff = geo ? geo.effectiveDpi : null;
+  const enhF = s.enhance === '4x' ? 4 : s.enhance === '2x' ? 2 : 1;
+  const eff = geo ? geo.effectiveDpi * enhF : null; // enhancement gives the export more real pixels per mm
+  const [enhPrev, setEnhPrev] = useState<{ before: string; after: string; factor: number } | null>(null); const [enhBusy, setEnhBusy] = useState(false);
+  async function previewEnhance() {
+    if (s.enhance === 'off') return; setEnhBusy(true); setEnhPrev(null);
+    try { const r = await fetch(`/api/projects/${id}/enhance-preview`, { method: 'POST', headers: j, body: JSON.stringify({ enhance: s.enhance }) }); const b = await r.json(); if (!r.ok) setMsg(b.message, true); else setEnhPrev(b); }
+    catch { setMsg('Could not make the preview. Check your connection.', true); } finally { setEnhBusy(false); }
+  }
 
   const draw = useCallback(() => {
     const c = canvas.current; const im = img.current; if (!c) return;
@@ -156,7 +163,16 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
     <details className="card" open><summary><strong>Size and output</strong></summary>
       <div className="grid"><div><label htmlFor="preset">Preset</label><select id="preset" value="" onChange={e => { const p = PRESETS[e.target.value]; if (p) set({ widthMm: p[0], heightMm: p[1] }); }}><option value="">Custom</option>{Object.keys(PRESETS).map(k => <option key={k}>{k}</option>)}</select></div>
         {num('widthMm', 'Width (mm)', 1, 1, 500)}{num('heightMm', 'Height (mm)', 1, 1, 500)}{num('bleedMm', 'Bleed (mm)', 0.5, 0, 20)}{num('dpi', 'Resolution (dpi)', 50, 72, 1200)}
-        <div><label htmlFor="format">File format</label><select id="format" value={s.format} onChange={e => set({ format: e.target.value as S['format'] })}><option value="png">PNG (RGB)</option><option value="jpg">JPG (RGB)</option><option value="tiff">TIFF (RGB)</option><option value="pdf">PDF (single flattened page)</option></select></div></div></details>
+        <div><label htmlFor="format">File format</label><select id="format" value={s.format} onChange={e => { const f = e.target.value as S['format']; set({ format: f, colour: f === 'tiff' || f === 'pdf' ? s.colour : 'rgb' }); }}><option value="png">PNG</option><option value="jpg">JPG</option><option value="tiff">TIFF</option><option value="pdf">PDF (single flattened page)</option></select></div>
+        <div><label htmlFor="colour">Colour</label><select id="colour" value={s.colour} disabled={s.format === 'png' || s.format === 'jpg'} onChange={e => set({ colour: e.target.value as S['colour'] })}><option value="rgb">RGB (sRGB)</option><option value="cmyk">CMYK</option></select>
+          <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>{s.format === 'png' || s.format === 'jpg' ? 'PNG and JPG are always RGB. Choose TIFF or PDF for CMYK.' : s.colour === 'cmyk' ? 'Converted with the FOGRA39 coated profile and limited to 300% total ink. Colours on screen are an approximation. This is not a PDF/X file.' : 'Choose CMYK if your printer asks for CMYK files.'}</p></div>
+        <div><label htmlFor="enhance">Enhance resolution</label><select id="enhance" value={s.enhance} onChange={e => { set({ enhance: e.target.value as S['enhance'] }); setEnhPrev(null); }}><option value="off">Off</option><option value="2x">2×</option><option value="4x">4×</option></select>
+          <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>Enlarges your image (OpenCV ESPCN model) before it is placed. It cannot bring back detail that is not in the picture, and on smooth images the result can be no better than a plain enlargement. Check the preview first.</p>
+          {s.enhance !== 'off' && <p style={{ margin: '6px 0 0' }}><button type="button" className="btn" onClick={previewEnhance} disabled={enhBusy || !sourceId}>{enhBusy ? 'Making preview…' : 'Preview before and after'}</button></p>}
+          {enhPrev && <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8 }} role="group" aria-label="Enhancement before and after">
+            <figure style={{ margin: 0 }}><img alt="Before: plain enlargement of the centre of your image" src={enhPrev.before} style={{ maxWidth: '100%', width: 192, imageRendering: 'pixelated' }} /><figcaption className="muted" style={{ fontSize: 13 }}>Before (plain enlargement)</figcaption></figure>
+            <figure style={{ margin: 0 }}><img alt="After: enhanced enlargement of the same area" src={enhPrev.after} style={{ maxWidth: '100%', width: 192, imageRendering: 'pixelated' }} /><figcaption className="muted" style={{ fontSize: 13 }}>After ({enhPrev.factor}× enhanced)</figcaption></figure>
+          </div>}</div></div></details>
     <details className="card" open><summary><strong>Position and fit</strong></summary>
       <div className="grid"><div><label htmlFor="fit">Placement</label><select id="fit" value={s.fit} onChange={e => set({ fit: e.target.value as S['fit'], offsetXMm: 0, offsetYMm: 0 })}><option value="fill">Fill (crop edges)</option><option value="fit">Fit (show all)</option></select></div>
         {num('scale', 'Scale (×)', 0.05, 0.05, 20)}{num('rotationDeg', 'Rotation (°)', 1, -360, 360)}{num('offsetXMm', 'Move across (mm)', 0.5)}{num('offsetYMm', 'Move down (mm)', 0.5)}</div>

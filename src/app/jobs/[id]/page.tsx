@@ -17,6 +17,7 @@ export default function Job({ params }: { params: Promise<{ id: string }> }) {
   return <main><h1>Your file</h1><p role="alert" className="err">{err}</p>
     {!s ? <p className="muted">Loading…</p> : <div className="card" aria-live="polite"><p><strong>{LABEL[s.status] ?? s.status}</strong></p>
       {s.message && <p>{s.message}</p>}
+      {s.outputId && <p><img src={`/api/outputs/${s.outputId}/preview`} alt="Watermarked preview of your finished file" style={{ maxWidth: '100%', width: 420, height: 'auto', border: '1px solid var(--line, #ccc)' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} /><br /><span className="muted">Preview only (watermarked, reduced size). Your download is the clean file.</span></p>}
       {s.outputId && <button type="button" onClick={async () => { const r = await fetch(`/api/outputs/${s.outputId}/link`, { method: 'POST' }); const b = await r.json(); if (r.ok) location.href = b.url; else setErr(b.message); }}>Download</button>}</div>}
     <p><a href="/projects">Back to your artwork</a></p></main>;
 }

@@ -19,7 +19,7 @@ export function libraryState(o: { expires_at: Date | string; revoked_at: unknown
 /** Own outputs, plus outputs of projects shared with me in an organisation I still belong to. Nothing else. */
 export async function listLibrary(actor: Actor) {
   const r = await getPool().query(`
-    select o.id, o.format, o.width_px, o.height_px, o.sha256, o.validated_at, o.created_at, o.expires_at, o.revoked_at, o.purged_at, o.job_id,
+    select o.id, o.format, o.colour, o.width_px, o.height_px, o.sha256, o.validated_at, o.created_at, o.expires_at, o.revoked_at, o.purged_at, o.job_id,
            p.id as project_id, p.name as project_name, p.org_id, (p.owner_user_id=$2) as mine,
            exists (select 1 from retention_holds h where h.output_id=o.id and h.released_at is null) as on_hold
     from outputs o join jobs j on j.id=o.job_id join reservations rs on rs.id=j.reservation_id join quotes q on q.id=rs.quote_id join projects p on p.id=q.project_id
@@ -28,7 +28,7 @@ export async function listLibrary(actor: Actor) {
       or (p.visibility='shared' and exists (select 1 from org_members m where m.org_id=p.org_id and m.user_id=$2 and m.revoked_at is null)))
     order by o.created_at desc limit 200`, [actor.tenantId, actor.userId]);
   return r.rows.map(o => ({
-    id: o.id as string, projectId: o.project_id as string, projectName: o.project_name as string, format: o.format as string, widthPx: o.width_px as number, heightPx: o.height_px as number,
+    id: o.id as string, projectId: o.project_id as string, projectName: o.project_name as string, format: o.format as string, colour: o.colour as string, widthPx: o.width_px as number, heightPx: o.height_px as number,
     createdAt: new Date(o.created_at).toISOString(), expiresAt: new Date(o.expires_at).toISOString(), mine: o.mine as boolean, validatedAt: new Date(o.validated_at).toISOString(),
     checksum: o.sha256 as string, jobId: o.job_id as string, ...libraryState(o),
   }));
@@ -89,6 +89,7 @@ export async function runRetention(now = new Date()) {
         const o = r.rows[0]; if (!o || o.held) return;
         await deleteStored(o.storage_key); // external side effect; ENOENT counts as done, so a crash between delete and commit is safe to rerun
         await c.query('update stored_files set deleted_at=now() where id=$1', [o.file_id]);
+        await c.query('delete from output_previews where output_id=$1', [o.id]);
         await c.query('update outputs set purged_at=now(), purge_error=null where id=$1', [o.id]);
         await audit(c, { action: 'output.purged', type: 'output', id: o.id, outcome: 'ok' });
         out.purged++;

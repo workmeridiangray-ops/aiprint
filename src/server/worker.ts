@@ -1,7 +1,7 @@
 import type pg from 'pg';
 import { randomUUID } from 'node:crypto';
 import { getPool, tx, AppError } from './db';
-import { renderExport, validateOutput, FORMATS } from './engine';
+import { renderExportWithPreview, validateOutput, FORMATS } from './engine';
 import { postEntry } from './ledger';
 import { audit } from './identity';
 import { validateSettings } from './projects';
@@ -31,13 +31,13 @@ export async function heartbeat(jobId: string, workerId: string, leaseSeconds = 
 }
 
 /** Finalise success exactly once: output + entitlement + ledger consumption in ONE transaction, gated on lease ownership. Re-running is a no-op. */
-async function finalizeSuccess(c: pg.PoolClient, jobId: string, workerId: string, attempt: number, fileId: string, v: { format: string; width: number; height: number; sha256: string }, ownerId: string) {
+async function finalizeSuccess(c: pg.PoolClient, jobId: string, workerId: string, attempt: number, fileId: string, v: { format: string; colour: string; width: number; height: number; sha256: string }, ownerId: string) {
   const j = await c.query('select j.status, j.lease_owner, j.tenant_id, j.reservation_id, r.customer_account_id, r.vendor_account_id, r.customer_paise, r.vendor_paise from jobs j join reservations r on r.id=j.reservation_id where j.id=$1 for update of j', [jobId]);
   const row = j.rows[0];
   if (row.status === 'succeeded') return false;
   if (row.status !== 'running' && row.status !== 'cancellation_requested' || row.lease_owner !== workerId) throw new AppError('lease_lost', 'Job lease was lost', 409);
-  await c.query(`insert into outputs(job_id,tenant_id,owner_user_id,file_id,format,width_px,height_px,sha256,validated_at,expires_at) values($1,$2,$3,$4,$5,$6,$7,$8,now(), now() + ($9 || ' days')::interval)`,
-    [jobId, row.tenant_id, ownerId, fileId, v.format, v.width, v.height, v.sha256, String(RETENTION_DAYS)]);
+  await c.query(`insert into outputs(job_id,tenant_id,owner_user_id,file_id,format,colour,width_px,height_px,sha256,validated_at,expires_at) values($1,$2,$3,$4,$5,$6,$7,$8,$9,now(), now() + ($10 || ' days')::interval)`,
+    [jobId, row.tenant_id, ownerId, fileId, v.format, v.colour, v.width, v.height, v.sha256, String(RETENTION_DAYS)]);
   // Consumption: debit both accounts once (idempotent keys), then mark the hold consumed so it is no longer counted as held.
   if (row.customer_account_id && Number(row.customer_paise) > 0) await postEntry(c, row.customer_account_id, -Number(row.customer_paise), 'job_consumed', `consume:${row.reservation_id}:customer`);
   if (row.vendor_account_id && Number(row.vendor_paise) > 0) await postEntry(c, row.vendor_account_id, -Number(row.vendor_paise), 'job_consumed', `consume:${row.reservation_id}:vendor`);
@@ -73,7 +73,7 @@ export async function runJob(jobId: string, workerId: string, attempt: number, h
     const row = r.rows[0];
     const settings = validateSettings(row.settings_snapshot); // immutable quote snapshot, not the live project
     const src = await storage().get(row.storage_key);
-    const out = await renderExport(src, settings);
+    const rendered = await renderExportWithPreview(src, settings); const out = rendered.file;
     const v = await validateOutput(out, settings);
     const key = `${row.tenant_id}/exports/${randomUUID()}.${FORMATS[settings.format].ext}`;
     await storage().put(key, out);
@@ -81,7 +81,9 @@ export async function runJob(jobId: string, workerId: string, attempt: number, h
     return await tx(async c => {
       const f = await c.query(`insert into stored_files(tenant_id,owner_user_id,kind,storage_key,sha256,bytes,width_px,height_px,format) values($1,$2,'export',$3,$4,$5,$6,$7,$8) returning id`,
         [row.tenant_id, row.owner, key, v.sha256, v.bytes, v.width, v.height, v.format]);
-      return finalizeSuccess(c, jobId, workerId, attempt, f.rows[0].id, v, row.owner);
+      const done = await finalizeSuccess(c, jobId, workerId, attempt, f.rows[0].id, v, row.owner);
+      if (done && rendered.preview) await c.query('insert into output_previews(output_id,jpeg,width_px,height_px) select id,$2,$3,$4 from outputs where job_id=$1 on conflict do nothing', [jobId, rendered.preview.jpeg, rendered.preview.width, rendered.preview.height]);
+      return done;
     });
   } catch (e: any) {
     if (e instanceof AppError && e.code === 'lease_lost') return false;
@@ -135,6 +137,13 @@ export async function readOutput(actor: Actor, outputId: string) {
   const { createHash } = await import('node:crypto');
   if (createHash('sha256').update(buf).digest('hex') !== o.sha256) throw new AppError('integrity_failed', 'The stored file failed its integrity check. Support has been alerted.', 500);
   return { buf, format: o.format as string };
+}
+/** Watermarked preview: same access rules as the file (owner/organisation, retention) but it never carries the clean image. */
+export async function readPreview(actor: Actor, outputId: string) {
+  const o = await loadOutput(actor, outputId);
+  const r = await getPool().query('select jpeg from output_previews where output_id=$1', [o.id]);
+  if (!r.rowCount) throw new AppError('no_preview', 'No preview is available for this file', 404);
+  return r.rows[0].jpeg as Buffer;
 }
 export async function jobStatus(actor: Actor, jobId: string) {
   const r = await getPool().query(`select j.status, j.last_error, o.id as output_id, p.tenant_id, p.owner_user_id, p.org_id, p.visibility from jobs j join reservations rs on rs.id=j.reservation_id join quotes q on q.id=rs.quote_id join projects p on p.id=q.project_id left join outputs o on o.job_id=j.id where j.id=$1`, [jobId]);

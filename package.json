@@ -18,7 +18,8 @@
     "dev:s3": "tsx scripts/dev-s3.ts",
     "backup": "tsx scripts/backup.ts",
     "restore": "tsx scripts/restore.ts",
-    "create-owner": "tsx scripts/create-owner.ts"
+    "create-owner": "tsx scripts/create-owner.ts",
+    "check-runtime": "tsx scripts/check-runtime.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1164.0",

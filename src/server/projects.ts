@@ -12,6 +12,8 @@ export const SettingsSchema = z.object({
   dpi: z.number().int().min(72).max(1200),
   fit: z.enum(['fit', 'fill']),
   format: z.enum(['png', 'jpg', 'tiff', 'pdf']).default('png'),
+  colour: z.enum(['rgb', 'cmyk']).default('rgb'),
+  enhance: z.enum(['off', '2x', '4x']).default('off'),
   offsetXMm: z.number().default(0),
   offsetYMm: z.number().default(0),
   rotationDeg: z.number().min(-360).max(360).default(0),
@@ -28,6 +30,7 @@ export function outputPixels(s: Settings) {
 export function validateSettings(input: unknown): Settings {
   const r = SettingsSchema.safeParse(input);
   if (!r.success) throw new AppError('invalid_settings', r.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; '));
+  if (r.data.colour === 'cmyk' && r.data.format !== 'tiff' && r.data.format !== 'pdf') throw new AppError('invalid_settings', 'colour: CMYK is available for TIFF and PDF only; PNG and JPG are RGB');
   if (outputPixels(r.data).total > MAX_OUTPUT_PIXELS) throw new AppError('output_too_large', 'Output including bleed exceeds 80 megapixels');
   return r.data;
 }

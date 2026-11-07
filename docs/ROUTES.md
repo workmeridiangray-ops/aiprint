@@ -61,6 +61,7 @@ the policy check (role and tenant) happens inside each handler through src/serve
 | API | `/api/orgs` | GET, POST | session + membership |
 | API | `/api/outputs/[id]/download` | GET | session + membership |
 | API | `/api/outputs/[id]/link` | POST | session + membership |
+| API | `/api/outputs/[id]/preview` | GET | session + membership |
 | API | `/api/platform/audit` | GET | session + membership |
 | API | `/api/platform/direct-store` | POST | session + membership |
 | API | `/api/platform/enquiries/[id]` | PATCH | session + membership |
@@ -73,6 +74,7 @@ the policy check (role and tenant) happens inside each handler through src/serve
 | API | `/api/platform/pricing` | POST | session + membership |
 | API | `/api/platform/runs` | GET | session + membership |
 | API | `/api/portal/[slug]` | GET | public |
+| API | `/api/projects/[id]/enhance-preview` | POST | session + membership |
 | API | `/api/projects/[id]/quote` | POST | session + membership |
 | API | `/api/projects/[id]` | GET, PATCH | session + membership |
 | API | `/api/projects/[id]/visibility` | PATCH | session + membership |

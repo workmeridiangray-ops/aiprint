@@ -81,6 +81,19 @@ licence terms must be reviewed by the client's counsel before commercial hand-ov
 | only | 0.0.2 | UNKNOWN | dev |
 | streamsearch | 0.1.2 | UNKNOWN | dev |
 
+Not in the npm inventory (installed in the Docker image or bundled as files):
+
+| Item | Licence / status | Used for |
+|---|---|---|
+| opencv-contrib-python-headless 4.10.0.84 (pip) | Apache-2.0 per its package metadata; not verified against upstream | image enhancement (dnn_superres) |
+| numpy (pip) | BSD-3-Clause per package metadata; not verified | dependency of OpenCV |
+| ESPCN_x2.pb, ESPCN_x4.pb (assets/models) | origin: supplied inside the PrintForge Preflight MVP; the licence of the trained model files has NOT been verified | enhancement models |
+| FOGRA39.icc (assets/profiles) | the file says "free of known copyright restrictions"; not legally reviewed; client has not confirmed FOGRA39 | CMYK export |
+| DejaVu Sans (Debian fonts-dejavu-core) | free font licence (Bitstream Vera / public domain changes) per Debian; not verified | watermark text |
+| python3 | PSF licence | runs the enhancement script |
+
+Ghostscript is NOT used (CMYK is done with libvips/lcms and our own file writers), so its AGPL terms do not apply.
+
 Notes: sharp bundles libvips as a separate native package (licence shown above if LGPL); it is dynamically linked, but
 the client should confirm this satisfies their distribution model. Licence fields come from package metadata and were
 not verified against upstream licence files.

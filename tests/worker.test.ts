@@ -13,13 +13,34 @@ beforeAll(async () => { await setupDb(); T = await mkTenant('V'); });
 afterAll(closePool);
 const S = { widthMm: 50, heightMm: 30, bleedMm: 2, dpi: 300, fit: 'fill' as const };
 const png = () => sharp({ create: { width: 400, height: 300, channels: 3, background: '#2a6' } }).png().toBuffer();
-async function queued(email: string, credit = 100000) {
+async function queued(email: string, credit = 100000, settings: object = S) {
   const u = await mkActor(T, email); const p = await createProject(u, 'P');
-  const f = await saveOriginal(u, await png()); await saveProject(u, p.id, 1, { sourceFileId: f.fileId, settings: S });
+  const f = await saveOriginal(u, await png()); await saveProject(u, p.id, 1, { sourceFileId: f.fileId, settings });
   const ca = await fund(T, u.userId, credit, `c-${email}`); const va = await fund(T, null, 1_000_000, `v-${email}`);
   const q = await createQuote(u, p.id); const r = await reserveQuote(u, q.quoteId);
   return { u, pid: p.id, q, r, ca, va };
 }
+
+describe('CMYK jobs', () => {
+  it('a CMYK TIFF job runs through quote, queue and worker, is stored as CMYK and listed as CMYK', async () => {
+    const x = await queued('cmyk1@x.test', 100000, { ...S, format: 'tiff', colour: 'cmyk' });
+    expect(await workOnce('w-a')).toBe(true);
+    const st = await jobStatus(x.u, x.r.jobId); expect(st.status).toBe('succeeded');
+    const { buf } = await readOutput(x.u, st.outputId!);
+    const m = await sharp(buf).metadata(); expect(m.space).toBe('cmyk'); expect(m.hasProfile).toBe(true);
+    const row = (await getPool().query('select colour, format from outputs where id=$1', [st.outputId])).rows[0];
+    expect(row).toEqual({ colour: 'cmyk', format: 'tiff' });
+    const { listLibrary } = await import('../src/server/retention');
+    const lib = await listLibrary(x.u); expect(lib.find((o: any) => o.id === st.outputId)).toMatchObject({ colour: 'cmyk', format: 'tiff' });
+  });
+  it('the price snapshot keeps the colour choice, so later project edits cannot change the paid file', async () => {
+    const x = await queued('cmyk2@x.test', 100000, { ...S, format: 'pdf', colour: 'cmyk' });
+    await saveProject(x.u, x.pid, 2, { settings: { ...S, format: 'pdf', colour: 'rgb' } });
+    await workOnce('w-a');
+    const st = await jobStatus(x.u, x.r.jobId);
+    expect((await getPool().query('select colour from outputs where id=$1', [st.outputId])).rows[0].colour).toBe('cmyk');
+  });
+});
 
 describe('processing', () => {
   it('produces a validated export with correct pixel size, consumes credit exactly once, entitles owner', async () => {

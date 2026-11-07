@@ -28,7 +28,7 @@ describe('settings validation', () => {
   });
   it('bleed counts toward the ceiling', () => {
     const noBleed = { widthMm: 500, heightMm: 500, bleedMm: 0, dpi: 440, fit: 'fit' as const };
-    expect(outputPixels({ ...noBleed, format: 'png' as const, offsetXMm: 0, offsetYMm: 0, rotationDeg: 0, scale: 1 }).total).toBeLessThan(80e6);
+    expect(outputPixels({ ...noBleed, format: 'png' as const, colour: 'rgb' as const, enhance: 'off' as const, offsetXMm: 0, offsetYMm: 0, rotationDeg: 0, scale: 1 }).total).toBeLessThan(80e6);
     expect(() => validateSettings({ ...noBleed, bleedMm: 20 })).toThrow(/80 megapixels/);
   });
 });

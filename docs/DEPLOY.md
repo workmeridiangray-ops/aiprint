@@ -22,6 +22,9 @@ Cloudflare Workers/Pages for the whole app is not recommended: it would mean rew
 6. **Domain**: add the domain to the Render web service, then a CNAME in Cloudflare DNS. Set `APP_URL` to `https://your-domain` (it is used in email links).
 7. **First owner**: there is no public way to create a platform owner. Create the first one from a Render shell with a one-off script (see "First platform owner" below), with `npm run create-owner` (below), then sign in and enrol two-step sign-in (required for owners).
 
+## What the image needs for CMYK, enhancement and previews
+The Dockerfile installs python3 with `opencv-contrib-python-headless` (image enhancement) and `fonts-dejavu-core` (the preview watermark text), and runs `scripts/check-runtime.ts` during the build, so an image without them does not build. The same check is `npm run check-runtime`. If you run without Docker, install those yourself and run it. If the enhancement library is missing at run time, quotes that ask for enhancement are refused before any money is held. The Docker build has not been run in this environment; the check passes locally.
+
 ## First platform owner
 In a Render shell on the web service: `OWNER_EMAIL=you@example.com OWNER_PASSWORD='a long passphrase' npm run create-owner`. It reads both from the environment (not arguments), refuses if an owner already exists, and records the event in the audit log. Sign in and enrol two-step sign-in when asked. Do not use `tests/e2e/mkplatform.mts`: it creates dev accounts with a known password.
 
