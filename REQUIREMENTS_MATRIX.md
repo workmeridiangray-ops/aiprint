@@ -48,13 +48,13 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | SC-036 | Project list | Partial | /projects, GET/POST /api/projects | HTTP smoke; build | Own projects only; no search, archive, business sharing |
 | SC-037 | Upload and setup | Partial | /projects/[id] file picker, POST /api/files | tests/security.test.ts (upload inspection) | Local-disk storage only; no malware scanning/quarantine workflow; no front/back second image; no preset list |
 | SC-038 | Inspection | Partial | Inspection message in editor; src/server/files.ts | tests/security.test.ts | No DPI warning, no profile conversion, only embedded/untagged flag |
-| SC-039 | Print editor | Partial | /projects/[id] numeric size/bleed/dpi/placement, debounced autosave | tests/projects-quotes.test.ts | No canvas preview, move/rotate/crop UI, undo/redo, zoom, guides, enhancement or export engine |
+| SC-039 | Print editor | Partial | /projects/[id] numeric settings + server export engine (src/server/engine.ts) | tests/projects-quotes.test.ts, tests/worker.test.ts | No canvas preview/transform UI/undo; move/rotate not exposed in UI; no enhancement; no CMYK/ICC |
 | SC-040 | Version conflict | Partial | Conflict banner in editor; 409 revision_conflict returns current state | tests/projects-quotes.test.ts | No side-by-side resolve/save-as-copy flow |
 | SC-041 | Quote confirmation | Partial | Get price / Hold funds buttons; POST /api/projects/[id]/quote, /api/quotes/[id]/reserve | tests/projects-quotes.test.ts | Placeholder dev pricing, not versioned vendor/platform pricing config |
 | SC-042 | Customer credits and checkout | Blocked | Reservation against ledger only | tests/projects-quotes.test.ts | No payment/top-up: needs approved provider (not selected/credentialed). No fake success implemented |
-| SC-043 | Processing status | Partial | jobs table only | tests/projects-quotes.test.ts (cancel/hold rules) | No worker, no status UI, no output engine |
-| SC-044 | Result preview | Not started | - | - | Not implemented |
-| SC-045 | Downloads and versions | Not started | - | - | Not implemented |
+| SC-043 | Processing status | Partial | /jobs/[id]; GET /api/jobs/[id]; scripts/worker.ts | tests/worker.test.ts | Polling UI only; no failure-review queue UI; no cancel button |
+| SC-044 | Result preview | Partial | Download link on /jobs/[id] | tests/worker.test.ts | No preview image; PNG RGB only |
+| SC-045 | Downloads and versions | Partial | GET /api/outputs/[id]/download (owner, 90-day, checksum) | tests/worker.test.ts | No version list, no 7-day warning, no TIFF/PDF/JPG, no CMYK |
 | SC-046 | Customer transactions | Not started | - | - | Not implemented |
 | SC-047 | Profile and security | Not started | - | - | Not implemented |
 | SC-048 | Account export and closure | Not started | - | - | Not implemented |
@@ -98,9 +98,9 @@ Totals: 75 surfaces; 10 partial/blocked, 65 not started.
 | AT-06 | Two saves against one revision cannot silently overwrite; second sees conflict and can save a new pe | Covered (slice) | Concurrent and stale saves tested. UI second-save recovery is minimal |
 | AT-07 | Changed file/settings or expired quote cannot use stale accepted price; unchanged accepted running j | Partial | Stale and expired quotes tested. Running-job price retention untested (no worker) |
 | AT-08 | Concurrent requests against one remaining balance/cap cannot overspend; available/reserved/spent rec | Partial | Customer and vendor credit concurrency tested. Member caps not built |
-| AT-09 | Double click, duplicate callback and repeated worker delivery yield one charge and one eligible enti | Not started | No test |
-| AT-10 | Worker dies after upstream success: system reconciles outcome before retry, without another paid ups | Not started | No test |
-| AT-11 | Terminal failed job releases hold; direct payment tracks refund due/submitted/confirmed and never fa | Not started | No test |
+| AT-09 | Double click, duplicate callback and repeated worker delivery yield one charge and one eligible enti | Partial | Repeated worker delivery / zombie worker yields one consumption and one output: tested. Double-click and duplicate payment callbacks not built |
+| AT-10 | Worker dies after upstream success: system reconciles outcome before retry, without another paid ups | Partial | Worker death and zombie finalize tested for the local engine. Paid upstream unknown-outcome path (needs_review) is a status only, not wired |
+| AT-11 | Terminal failed job releases hold; direct payment tracks refund due/submitted/confirmed and never fa | Partial | Failed job releases hold: tested. Direct-payment refund tracking not built |
 | AT-12 | Browser closes before payment success: later verified event credits/unlocks once; wrong amount/curre | Not started | No test |
 | AT-13 | Direct unpaid raw-object access denied; paid exact-version download allowed; same-version redownload | Not started | No test |
 | AT-14 | Counter cash creates no platform-collected revenue/payable; vendor cost captured once and override l | Not started | No test |

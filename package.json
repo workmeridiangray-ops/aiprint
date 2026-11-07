@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "migrate": "tsx scripts/migrate.ts",
     "seed:dev": "tsx scripts/seed-dev.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "worker": "tsx scripts/worker.ts"
   },
   "dependencies": {
     "next": "^15.5.29",

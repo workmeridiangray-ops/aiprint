@@ -44,7 +44,7 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
   }
   async function reserve() {
     const r = await fetch(`/api/quotes/${quote.quoteId}/reserve`, { method: 'POST' }); const b = await r.json();
-    if (r.ok) { setMsg('Funds are held and your job is queued.'); setQuote(null); } else setMsg(b.message);
+    if (r.ok) { location.href = `/jobs/${b.jobId}`; } else setMsg(b.message);
   }
   const num = (k: keyof S, label: string, step = 1) => <div><label htmlFor={k}>{label}</label>
     <input id={k} type="number" step={step} value={s[k] as number} onChange={e => change(k, Number(e.target.value))} /></div>;

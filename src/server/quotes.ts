@@ -25,9 +25,9 @@ export async function createQuote(actor: Actor, projectId: string) {
     const settings = validateSettings(p.settings);
     const { customer, vendor } = priceFor(outputPixels(settings).total);
     const q = await c.query(
-      `insert into quotes(tenant_id,project_id,project_revision,settings_snapshot,customer_amount_paise,vendor_charge_paise,pricing_version,expires_at)
-       values($1,$2,$3,$4,$5,$6,$7, now() + ($8 || ' minutes')::interval) returning id, expires_at`,
-      [p.tenant_id, p.id, p.revision, JSON.stringify(settings), customer, vendor, PRICING_VERSION, String(QUOTE_TTL_MINUTES)]);
+      `insert into quotes(tenant_id,project_id,project_revision,source_file_id,settings_snapshot,customer_amount_paise,vendor_charge_paise,pricing_version,expires_at)
+       values($1,$2,$3,$9,$4,$5,$6,$7, now() + ($8 || ' minutes')::interval) returning id, expires_at`,
+      [p.tenant_id, p.id, p.revision, JSON.stringify(settings), customer, vendor, PRICING_VERSION, String(QUOTE_TTL_MINUTES), p.source_file_id]);
     return { quoteId: q.rows[0].id as string, expiresAt: q.rows[0].expires_at as Date, customerAmountPaise: customer, vendorChargePaise: vendor };
   });
 }
