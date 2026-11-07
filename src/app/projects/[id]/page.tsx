@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, use, useCallback } from 'react';
 import { placement, dpiLevel, LOW_DPI_WARN } from '@/lib/geometry';
 
 type S = { widthMm: number; heightMm: number; bleedMm: number; dpi: number; fit: 'fit' | 'fill'; format: 'png' | 'jpg' | 'tiff' | 'pdf'; colour: 'rgb' | 'cmyk'; enhance: 'off' | '2x' | '4x'; offsetXMm: number; offsetYMm: number; rotationDeg: number; scale: number };
-const DEF: S = { widthMm: 210, heightMm: 297, bleedMm: 3, dpi: 300, fit: 'fill', format: 'png', colour: 'rgb', enhance: 'off', offsetXMm: 0, offsetYMm: 0, rotationDeg: 0, scale: 1 };
+const DEF: S = { widthMm: 210, heightMm: 297, bleedMm: 3, dpi: 300, fit: 'fill', format: 'pdf', colour: 'cmyk', enhance: 'off', offsetXMm: 0, offsetYMm: 0, rotationDeg: 0, scale: 1 };
 const PRESETS: Record<string, [number, number]> = { 'A4 (210 × 297)': [210, 297], 'A5 (148 × 210)': [148, 210], 'A6 (105 × 148)': [105, 148], 'Business card (90 × 55)': [90, 55], 'Poster A3 (297 × 420)': [297, 420] };
 const SAFE_MM = 3;
 type Save = 'saved' | 'saving' | 'unsaved' | 'error' | 'conflict' | 'offline';
@@ -162,7 +162,7 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
       <p className="muted">Drag the image to move it; drag the square corner handle to resize. Red line: trim. Green dashes: safe area. Tinted edge: bleed, filled by mirroring your image edges when exported. This is a preview; the exported file is produced on the server.</p></div>
     <details className="card" open><summary><strong>Size and output</strong></summary>
       <div className="grid"><div><label htmlFor="preset">Preset</label><select id="preset" value="" onChange={e => { const p = PRESETS[e.target.value]; if (p) set({ widthMm: p[0], heightMm: p[1] }); }}><option value="">Custom</option>{Object.keys(PRESETS).map(k => <option key={k}>{k}</option>)}</select></div>
-        {num('widthMm', 'Width (mm)', 1, 1, 500)}{num('heightMm', 'Height (mm)', 1, 1, 500)}{num('bleedMm', 'Bleed (mm)', 0.5, 0, 20)}{num('dpi', 'Resolution (dpi)', 50, 72, 1200)}
+        {num('widthMm', 'Width (mm)', 1, 1, 500)}{num('heightMm', 'Height (mm)', 1, 1, 500)}{num('bleedMm', 'Bleed (mm)', 0.5, 0, 20)}{num('dpi', 'Resolution (dpi; 300 is print standard)', 50, 72, 1200)}
         <div><label htmlFor="format">File format</label><select id="format" value={s.format} onChange={e => { const f = e.target.value as S['format']; set({ format: f, colour: f === 'tiff' || f === 'pdf' ? s.colour : 'rgb' }); }}><option value="png">PNG</option><option value="jpg">JPG</option><option value="tiff">TIFF</option><option value="pdf">PDF (single flattened page)</option></select></div>
         <div><label htmlFor="colour">Colour</label><select id="colour" value={s.colour} disabled={s.format === 'png' || s.format === 'jpg'} onChange={e => set({ colour: e.target.value as S['colour'] })}><option value="rgb">RGB (sRGB)</option><option value="cmyk">CMYK</option></select>
           <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>{s.format === 'png' || s.format === 'jpg' ? 'PNG and JPG are always RGB. Choose TIFF or PDF for CMYK.' : s.colour === 'cmyk' ? 'Converted with the FOGRA39 coated profile and limited to 300% total ink. Colours on screen are an approximation. This is not a PDF/X file.' : 'Choose CMYK if your printer asks for CMYK files.'}</p></div>
