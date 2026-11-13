@@ -8,7 +8,13 @@ export const COOKIE = 'aw_session';
 function sameOrigin(req: NextRequest) {
   if (['GET', 'HEAD'].includes(req.method)) return true;
   const o = req.headers.get('origin');
-  return !!o && o === req.nextUrl.origin; // CSRF: mutating calls must come from our own origin
+  if (!o) return false;
+  if (o === req.nextUrl.origin) return true; // CSRF: mutating calls must come from our own origin
+  // Behind a proxy (Render, Cloudflare) nextUrl is the internal address: accept the configured public URL or the forwarded host.
+  const app = process.env.APP_URL?.replace(/\/+$/, '');
+  if (app && o === app) return true;
+  const host = req.headers.get('x-forwarded-host'), proto = req.headers.get('x-forwarded-proto') ?? 'https';
+  return !!host && o === `${proto.split(',')[0].trim()}://${host.split(',')[0].trim()}`;
 }
 
 export function handler(fn: (req: NextRequest, ctx: { actor: Actor; params: Record<string, string> }) => Promise<unknown>, opts: { public?: boolean; allowEnrolOnly?: boolean; webhook?: boolean } = {}) {
