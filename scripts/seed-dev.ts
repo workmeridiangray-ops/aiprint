@@ -4,7 +4,7 @@ import { ensureAccount, postEntry } from '../src/server/ledger';
 import { activateSubscription } from '../src/server/vendor';
 import { closePool, getPool } from '../src/server/db';
 if (['production', 'staging'].includes(process.env.APP_ENV ?? '')) { console.error('Refusing to seed in ' + process.env.APP_ENV); process.exit(1); }
-const p = getPool(); const pw = 'dev-password-12345';
+const p = getPool(); const pw = process.env.SEED_PASSWORD || 'dev-password-12345';
 if ((await p.query("select 1 from vendor_profiles where slug='dev-sample'")).rowCount) { console.log('Dev seed already present.'); await closePool(); process.exit(0); }
 if (!(await p.query('select 1 from platform_pricing')).rowCount) await p.query('insert into platform_pricing(per_mp_paise,min_paise) values(100,200)');
 const plan = (await p.query("insert into plans(code,version,name,staff_seats,monthly_price_paise) values('dev',(select coalesce(max(version),0)+1 from plans where code='dev'),'Dev plan',5,100000) returning id")).rows[0].id;
@@ -25,5 +25,5 @@ for (const [email, role] of [['dev.owner@example.test', 'platform_owner'], ['dev
   if (!(await p.query('select 1 from users where email=$1', [email])).rowCount) await createUser(email, pw, pt, role);
 await createUser('dev.vfinance@example.test', pw, t, 'vendor_finance');
 console.log('  platform: dev.owner@, dev.support@, dev.finance@, dev.finance2@example.test\n  store finance: dev.vfinance@example.test');
-console.log(`Seeded dev vendor. Password for all: ${pw}\n  customer: dev.customer@example.test\n  vendor admin: dev.admin@example.test\n  counter staff: dev.counter@example.test`);
+console.log(`Seeded dev vendor. Password for all: ${process.env.SEED_PASSWORD ? '(from SEED_PASSWORD)' : pw}\n  customer: dev.customer@example.test\n  vendor admin: dev.admin@example.test\n  counter staff: dev.counter@example.test`);
 await closePool();
