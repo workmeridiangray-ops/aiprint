@@ -1,5 +1,5 @@
-# DEMO blueprint: sandbox payments (fake money), dev seed accounts, files on a disk, emails written to disk.
-# FREE tier: app sleeps after 15 min idle, files vanish on restart, database is external (Render allows one free Postgres per workspace and forgeline-db has it).
+# DEMO blueprint: sandbox payments (fake money), dev seed accounts, files in Neon storage, emails written to disk.
+# FREE tier: app sleeps after 15 min idle, files live in Neon object storage, database is external (Render allows one free Postgres per workspace and forgeline-db has it).
 # NOT for real customers. Production uses render.yaml. SEED_PASSWORD is set at approval time, never committed.
 services:
   - type: web
@@ -11,8 +11,13 @@ services:
     envVars:
       - { key: APP_ENV, value: development }
       - { key: PAYMENT_PROVIDER, value: sandbox }
-      - { key: STORAGE_DRIVER, value: local }
-      - { key: STORAGE_LOCAL_DIR, value: /tmp/files }
+      - { key: STORAGE_DRIVER, value: s3 }
+      - { key: S3_BUCKET, value: uploads }
+      - { key: S3_ENDPOINT, sync: false }
+      - { key: S3_REGION, value: us-east-2 }
+      - { key: S3_FORCE_PATH_STYLE, value: "true" }
+      - { key: S3_ACCESS_KEY_ID, sync: false }
+      - { key: S3_SECRET_ACCESS_KEY, sync: false }
       - { key: EMAIL_DRIVER, value: file }
       - { key: EMAIL_FILE_DIR, value: /tmp/mail }
       - { key: DATABASE_URL, sync: false }   # free Postgres from Neon or Supabase (direct, not pooled)
