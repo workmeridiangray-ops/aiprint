@@ -1,0 +1,54 @@
+'use client';
+import { useEffect, useState } from 'react';
+import { call, rs, when, day, words, useAct, Badge } from '../../ui';
+const REASON: Record<string, string> = { topup: 'Payment received', job_consumed: 'Processing charge for a job', adjustment: 'Correction by the platform', test_seed: 'Test credit' };
+const SUB: Record<string, string> = { pending: 'Not started. Pay the first month to open your store.', active: 'Active', grace: 'Ended: in the 7-day grace period. Renew now to stay open.', expired: 'Expired. New paid work is blocked until you renew. Customers can still download finished files.', suspended: 'Suspended by the platform', cancelled: 'Cancelled' };
+export default function Billing() {
+  const [sub, setSub] = useState<any>(null); const [m, setM] = useState<any>(null); const [st, setSt] = useState<any>(null); const [ben, setBen] = useState<any>(null); const [refunds, setRefunds] = useState<any[]>([]); const [deny, setDeny] = useState<string | null>(null);
+  async function load() {
+    const [a, b, c, d, e] = await Promise.all([call('/api/vendor/subscription'), call('/api/money'), call('/api/vendor/statement'), call('/api/vendor/beneficiary'), call('/api/refunds')]);
+    setSub(a); setM(b); setSt(c); setBen(d); setRefunds(e);
+  }
+  const { act, form, busy, Notice, setErr } = useAct(load);
+  useEffect(() => { load().catch(e => { if (e.message !== 'auth') setErr(e.message === 'Not permitted' ? 'Billing is for the store administrator and finance staff.' : e.message); }); }, []);
+  const go = async (body: unknown) => { const p = await call('/api/payments', 'POST', body); location.href = `/pay/${p.paymentId}`; };
+  const credit = m?.accounts?.[0]; const waiting = refunds.filter(r => r.status === 'requested' && r.kind === 'job_charge');
+  return <main className="wide"><h1>Billing</h1><p><a href="/vendor">Back to your store</a></p><Notice />
+    {!sub || !m ? <p className="muted">Loading…</p> : <>
+      {(sub.provider?.testMode) && <p className="testmode"><strong>Test mode.</strong> Payments here are simulated. No real money moves.</p>}
+      {sub.exists && <section className="card"><h2>Subscription</h2>
+        <p><Badge s={sub.status} /> {SUB[sub.status]}{sub.plan ? ` Plan: ${sub.plan}.` : ''}{sub.periodEnd ? ` Paid until ${day(sub.periodEnd)}.` : ''}</p>
+        {!sub.provider.available ? <p className="muted">Online payment is not available yet, so the subscription cannot be paid here. {sub.provider.message}</p> : sub.plans.length === 0 ? <p className="muted">No plans have been published yet.</p> :
+          <div className="scroll"><table><thead><tr><th>Plan</th><th>Staff seats</th><th>Storage</th><th className="num">Per month</th><th></th></tr></thead><tbody>{sub.plans.map((p: any) => <tr key={p.id}><td>{p.name}{p.id === sub.planId ? ' (current)' : ''}</td><td>{p.staffSeats}</td><td>{p.storageMb ? `${p.storageMb} MB` : 'No limit'}</td><td className="num">{rs(p.monthlyPricePaise)}</td>
+            <td>{sub.canPay && !['suspended', 'cancelled'].includes(sub.status) && <button disabled={busy} onClick={() => act(() => go({ purpose: 'subscription', planId: p.id }), '')}>{sub.status === 'pending' ? 'Pay first month' : 'Pay for the next month'}</button>}</td></tr>)}</tbody></table></div>}
+        <p className="muted">Each payment covers one month. Paying early adds a month after the current one ends. There is no automatic debit and no part-month credit when changing plan.</p>
+        {sub.history.length > 0 && <details><summary>Past periods</summary><ul>{sub.history.map((h: any, i: number) => <li key={i}>{day(h.from)} to {day(h.to)} · {h.plan}</li>)}</ul></details>}</section>}
+
+      {credit && <section className="card"><h2>Processing credit</h2>
+        <div className="grid"><div className="stat"><strong>{rs(credit.availablePaise)}</strong><span className="muted">Available</span></div><div className="stat"><strong>{rs(credit.heldPaise)}</strong><span className="muted">On hold for jobs in progress</span></div></div>
+        <p className="muted">Every job, online or at the counter, uses processing credit. When it runs out, new jobs are blocked until you add more; your customers' own credit is not touched.</p>
+        {m.provider.available && <form onSubmit={form(f => go({ purpose: 'vendor_topup', amountPaise: Math.round(Number(f.get('amount')) * 100) }), '', false)}><div className="inline"><div><label htmlFor="vamt">Add credit (₹{m.limits.vendorMin / 100} to ₹{(m.limits.vendorMax / 100).toLocaleString('en-IN')})</label><input id="vamt" name="amount" type="number" min={m.limits.vendorMin / 100} max={m.limits.vendorMax / 100} step="1" required defaultValue={1000} /></div><button disabled={busy}>Continue to payment</button></div></form>}
+        <details><summary>Credit statement</summary>{credit.entries.length === 0 ? <p className="muted">Nothing yet.</p> : <div className="scroll"><table><thead><tr><th>Date</th><th>What</th><th className="num">Amount</th></tr></thead><tbody>{credit.entries.map((e: any, i: number) => <tr key={i}><td>{when(e.at)}</td><td>{REASON[e.reason] ?? words(e.reason)}</td><td className="num">{rs(e.amountPaise)}</td></tr>)}</tbody></table></div>}</details></section>}
+
+      {waiting.length > 0 && <section className="card"><h2>Refund requests waiting for your decision</h2>
+        <p className="muted">You decide; the platform's finance team then returns the money or credit. A full refund ends the customer's downloads of that file. A part refund keeps them unless you tick the box. Your processing charge for the job is not returned by a refund.</p>
+        {waiting.map(r => <div className="card" key={r.id}><strong>{r.reference}</strong> · {rs(r.amountPaise)} · {r.method === 'credit' ? 'back as credit' : 'back to the customer\'s bank'} · asked by {r.requester} on {when(r.createdAt)}<p>{r.reason}</p>
+          {deny === r.id ? <form onSubmit={form(async f => { await call(`/api/refunds/${r.id}/decision`, 'POST', { approve: false, note: f.get('note') }); setDeny(null); }, 'Refund refused. The customer has been told.')}><label htmlFor={`n${r.id}`}>Reason for refusing (the customer sees this)</label><input id={`n${r.id}`} name="note" minLength={3} maxLength={500} required /><div className="bar" style={{ marginTop: 8 }}><button className="danger" disabled={busy}>Refuse refund</button><button type="button" className="secondary" onClick={() => setDeny(null)}>Cancel</button></div></form>
+            : <form onSubmit={form(f => call(`/api/refunds/${r.id}/decision`, 'POST', { approve: true, revokeAccess: f.get('revoke') === 'on' }), 'Approved. Finance will now return it; nothing has been paid back yet.')}><label className="check"><input type="checkbox" name="revoke" defaultChecked={r.revokeAccess} /> Also stop further downloads of this file</label><div className="bar" style={{ marginTop: 8 }}><button disabled={busy}>Approve {rs(r.amountPaise)}</button><button type="button" className="secondary" onClick={() => setDeny(r.id)}>Refuse…</button></div></form>}</div>)}</section>}
+
+      {st && <section className="card"><h2>Earnings and settlements</h2>
+        <div className="stat"><strong>{rs(st.balancePaise)}</strong><span className="muted">{st.balancePaise < 0 ? 'Carried forward against future sales (refunds after a payout). Nothing is taken from your bank.' : 'Owed to you from online sales, before the next settlement'}</span></div>
+        <p className="muted">Online sales are added in full. Processing is paid from your prepaid credit and is not deducted here again. Counter payments you took yourself, and customers' unused credit, are not part of this.</p>
+        {st.months.length === 0 ? <p className="muted">No online sales yet.</p> : <div className="scroll"><table><thead><tr><th>Month</th><th className="num">Online sales</th><th className="num">Refunds</th><th className="num">Corrections</th><th className="num">Paid out</th></tr></thead><tbody>{st.months.map((x: any) => <tr key={x.period}><td>{x.period}</td><td className="num">{rs(x.salesPaise)}</td><td className="num">{rs(x.refundsPaise)}</td><td className="num">{rs(x.adjustmentsPaise)}</td><td className="num">{rs(x.payoutsPaise)}</td></tr>)}</tbody></table></div>}
+        {st.settlements.length > 0 && <><h3>Settlement runs</h3><div className="scroll"><table><thead><tr><th>Month</th><th className="num">Payable</th><th className="num">Held</th><th className="num">Transfer</th><th>Status</th><th>Reference</th></tr></thead><tbody>{st.settlements.map((l: any) => <tr key={l.id}><td>{l.period}</td><td className="num">{rs(l.payablePaise)}</td><td className="num">{rs(l.heldPaise)}{l.holdReason ? <div className="muted">{l.holdReason}</div> : null}</td><td className="num">{rs(l.transferPaise)}</td><td><Badge s={l.status} /></td><td>{l.reference ?? ''}{l.note ? <div className="muted">{l.note}</div> : null}</td></tr>)}</tbody></table></div></>}
+        <p><a href="/support">Raise an issue about a statement</a></p></section>}
+
+      {ben && <section className="card"><h2>Payout bank account</h2>
+        {ben.rows.length === 0 ? <p className="muted">No account yet. Settlements are held until one is approved.</p> : <div className="scroll"><table><thead><tr><th>Version</th><th>Account holder</th><th>Account</th><th>IFSC</th><th>Status</th><th>Requested</th></tr></thead><tbody>{ben.rows.map((b: any) => <tr key={b.id}><td>{b.version}</td><td>{b.holderName}</td><td>{b.account}</td><td>{b.ifsc}</td><td><Badge s={b.status} />{b.note ? <div className="muted">{b.note}</div> : null}</td><td>{day(b.createdAt)}</td></tr>)}</tbody></table></div>}
+        <details><summary>{ben.rows.some((b: any) => b.status === 'approved') ? 'Change the account' : 'Add an account'}</summary>
+          <form onSubmit={form(f => call('/api/vendor/beneficiary', 'POST', { holderName: f.get('holder'), accountNumber: f.get('acct'), ifsc: f.get('ifsc'), reason: f.get('reason') }), 'Request sent. The platform will verify and approve it before it is used; the current account stays in use until then.')} autoComplete="off">
+            <div className="grid"><div><label htmlFor="bh">Account holder name</label><input id="bh" name="holder" required maxLength={120} /></div><div><label htmlFor="ba">Account number</label><input id="ba" name="acct" required inputMode="numeric" pattern="[0-9 ]{6,22}" autoComplete="off" /></div><div><label htmlFor="bi">IFSC</label><input id="bi" name="ifsc" required pattern="[A-Za-z]{4}0[A-Za-z0-9]{6}" style={{ textTransform: 'uppercase' }} /></div></div>
+            <label htmlFor="br">Reason for adding or changing</label><input id="br" name="reason" minLength={10} maxLength={500} required />
+            <p className="muted">Only the last four digits are kept here and shown. Every administrator of your store is emailed when a change is requested.</p><button disabled={busy}>Send for verification</button></form></details></section>}
+    </>}</main>;
+}

@@ -18,5 +18,12 @@ await createUser('dev.admin@example.test', pw, t, 'vendor_admin');
 await createUser('dev.counter@example.test', pw, t, 'vendor_counter');
 await postEntry(p, await ensureAccount(p, t, 'customer_service_credit', cust), 100000, 'dev_seed', `dev-${t}-c`);
 await postEntry(p, await ensureAccount(p, t, 'vendor_processing_credit', null), 100000, 'dev_seed', `dev-${t}-v`);
+// Platform staff for trying the admin and finance screens. Two finance people, because approvals need a second person.
+let pt = (await p.query("select id from tenants where kind='platform' order by created_at limit 1")).rows[0]?.id;
+if (!pt) pt = (await p.query("insert into tenants(kind,name) values('platform','Platform') returning id")).rows[0].id;
+for (const [email, role] of [['dev.owner@example.test', 'platform_owner'], ['dev.support@example.test', 'platform_support'], ['dev.finance@example.test', 'platform_finance'], ['dev.finance2@example.test', 'platform_finance']] as const)
+  if (!(await p.query('select 1 from users where email=$1', [email])).rowCount) await createUser(email, pw, pt, role);
+await createUser('dev.vfinance@example.test', pw, t, 'vendor_finance');
+console.log('  platform: dev.owner@, dev.support@, dev.finance@, dev.finance2@example.test\n  store finance: dev.vfinance@example.test');
 console.log(`Seeded dev vendor. Password for all: ${pw}\n  customer: dev.customer@example.test\n  vendor admin: dev.admin@example.test\n  counter staff: dev.counter@example.test`);
 await closePool();

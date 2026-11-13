@@ -11,11 +11,11 @@ function sameOrigin(req: NextRequest) {
   return !!o && o === req.nextUrl.origin; // CSRF: mutating calls must come from our own origin
 }
 
-export function handler(fn: (req: NextRequest, ctx: { actor: Actor; params: Record<string, string> }) => Promise<unknown>, opts: { public?: boolean; allowEnrolOnly?: boolean } = {}) {
+export function handler(fn: (req: NextRequest, ctx: { actor: Actor; params: Record<string, string> }) => Promise<unknown>, opts: { public?: boolean; allowEnrolOnly?: boolean; webhook?: boolean } = {}) {
   return async (req: NextRequest, { params }: { params: Promise<Record<string, string>> }) => {
     const cid = randomUUID();
     try {
-      if (!sameOrigin(req)) throw new AppError('bad_origin', 'Request origin not allowed', 403);
+      if (!opts.webhook && !sameOrigin(req)) throw new AppError('bad_origin', 'Request origin not allowed', 403);
       const p = await params;
       const actor = opts.public ? (null as unknown as Actor) : await resolveActor(req.cookies.get(COOKIE)?.value, req.headers.get('x-tenant-id') ?? undefined, { allowEnrolOnly: opts.allowEnrolOnly });
       const out = await fn(req, { actor, params: p });

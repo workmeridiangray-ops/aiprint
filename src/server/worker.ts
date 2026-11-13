@@ -2,7 +2,7 @@ import type pg from 'pg';
 import { randomUUID } from 'node:crypto';
 import { getPool, tx, AppError } from './db';
 import { renderExportWithPreview, validateOutput, FORMATS } from './engine';
-import { postEntry } from './ledger';
+import { postEntry, ensureAccount } from './ledger';
 import { audit } from './identity';
 import { validateSettings } from './projects';
 import { require as authorize } from './policy';
@@ -42,6 +42,12 @@ async function finalizeSuccess(c: pg.PoolClient, jobId: string, workerId: string
   if (row.customer_account_id && Number(row.customer_paise) > 0) await postEntry(c, row.customer_account_id, -Number(row.customer_paise), 'job_consumed', `consume:${row.reservation_id}:customer`);
   if (row.vendor_account_id && Number(row.vendor_paise) > 0) await postEntry(c, row.vendor_account_id, -Number(row.vendor_paise), 'job_consumed', `consume:${row.reservation_id}:vendor`);
   await c.query("update reservations set status='consumed' where id=$1", [row.reservation_id]);
+  // Online retail collected by the platform for a vendor store becomes vendor payable, gross: the processing cost was prepaid and is not deducted again.
+  // Counter work (cash or external payment) and the owner's direct store never create a payable.
+  if (Number(row.customer_paise) > 0) {
+    const ch = (await c.query('select q.channel, t.kind from reservations r join quotes q on q.id=r.quote_id join tenants t on t.id=q.tenant_id where r.id=$1', [row.reservation_id])).rows[0];
+    if (ch.kind === 'vendor' && ch.channel === 'online') await postEntry(c, await ensureAccount(c, row.tenant_id, 'vendor_payable', null), Number(row.customer_paise), 'sale_earned', `earn:${row.reservation_id}`);
+  }
   await c.query("update jobs set status='succeeded', finished_at=now(), lease_owner=null, lease_expires_at=null where id=$1", [jobId]);
   await c.query("update job_attempts set finished_at=now(), outcome='succeeded' where job_id=$1 and attempt_no=$2", [jobId, attempt]);
   await audit(c, { tenant: row.tenant_id, action: 'job.succeeded', type: 'job', id: jobId, outcome: 'ok' });

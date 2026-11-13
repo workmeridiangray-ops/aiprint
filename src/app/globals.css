@@ -17,3 +17,10 @@ details>summary{cursor:pointer;margin-bottom:8px}canvas{display:block;height:aut
 .table{border-collapse:collapse;width:100%;max-width:640px}.table th,.table td{border-bottom:1px solid var(--line);padding:8px;text-align:left}dt{font-weight:600;margin-top:10px}dd{margin:2px 0 0}
 textarea{width:100%;padding:8px;border:1px solid var(--line);border-radius:4px;font:inherit}.check{display:flex;gap:8px;font-weight:400;align-items:flex-start}.check input{width:auto;margin-top:4px}
 [aria-invalid=true]{border-color:var(--err)}
+.ok{color:#17663a}.badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:13px;background:#eceff1;color:var(--ink);white-space:nowrap}
+.b-success,.b-confirmed,.b-approved,.b-active,.b-completed,.b-verified,.b-resolved{background:#e2f3e8;color:#17663a}.b-failed,.b-rejected,.b-quarantined,.b-suspended,.b-expired,.b-disabled{background:#fbe9e7;color:var(--err)}
+.b-pending,.b-requested,.b-submitted,.b-unknown,.b-held,.b-initiated,.b-open,.b-investigating,.b-grace,.b-draft,.b-proposed{background:#fff4d6;color:#7a5200}
+.scroll{overflow-x:auto}.scroll table{border-collapse:collapse;width:100%;min-width:560px}.scroll th,.scroll td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}.scroll th{font-size:13px;color:var(--muted);font-weight:600}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.stat strong{font-size:20px;display:block}.testmode{background:#fff4d6;border:1px solid #e6c766;border-radius:6px;padding:8px 12px;margin-bottom:16px}
+.tabs{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--line)}.tabs button{background:none;color:var(--ink);border-radius:4px 4px 0 0;margin:0;padding:8px 12px;border-bottom:3px solid transparent}.tabs button[aria-selected=true]{border-bottom-color:var(--teal);font-weight:600}
+main.wide{max-width:1120px}button.secondary{background:#fff;color:var(--teal);border:1px solid var(--teal)}button.danger{background:var(--err)}.inline{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}.inline>div{flex:1 1 160px}.inline button{margin-top:0}

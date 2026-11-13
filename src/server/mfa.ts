@@ -5,7 +5,7 @@ import type { Actor } from './auth';
 import { sha, issueSession } from './sessions';
 
 export const LIMITS = { emailFailures: 5, sourceFailures: 30, windowMinutes: 15, challengeMinutes: 5, challengeAttempts: 5, recoveryCodes: 10 };
-export const requiredRoles = () => (process.env.MFA_REQUIRED_ROLES ?? 'platform_owner,platform_support').split(',').map(s => s.trim()).filter(Boolean);
+export const requiredRoles = () => (process.env.MFA_REQUIRED_ROLES ?? 'platform_owner,platform_support,platform_finance').split(',').map(s => s.trim()).filter(Boolean);
 const ISSUER = 'Artwork';
 
 /* ---------- TOTP (RFC 6238, SHA-1, 6 digits, 30 s) ---------- */

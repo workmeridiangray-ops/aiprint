@@ -1,6 +1,6 @@
 # IMPLEMENTATION_STATUS
 
-Updated: 2026-11-07. Spec baseline: R3 (MG-ARTWORK-2026-1107-R3), ₹12.5 lakh base. **Not production-ready.** This is the first vertical slice of a much larger build.
+Updated: 2026-11-14 (Part 28). Spec baseline: R3 (MG-ARTWORK-2026-1107-R3), ₹12.5 lakh base. **Not production-ready.** This is the first vertical slice of a much larger build.
 
 ## Baseline
 - No repository was supplied, so this one was created empty at `artwork-saas/` (local, git, single branch). No prior code, dependencies or tests existed.
@@ -141,3 +141,28 @@ Canvas drag-to-move and a corner resize handle (kept on-canvas so it can always 
 ## Part 27: one command for the browser checks
 - `npm run e2e` (scripts/e2e.ts): fresh artwork_e2e database, seed, platform users, app + worker, then 12 Playwright scripts in two phases (second phase uses default two-step rules for mfa-flow). First fully green run: 12/12. Env: E2E_BUILD=1 forces a build, E2E_OUT sets the screenshot folder, E2E_BASE overrides the URL inside a script.
 - The scripts check by waiting for expected screens; most print findings rather than assert them, so a pass means "no crash, no timeout", not every printed line verified. Not covered yet: /vendor/settings, closure screens, /vendor/reports.
+
+
+## Part 28: payments, refunds, corrections, payout accounts, settlements and the remaining platform screens
+All 75 surfaces now have real, tested code behind them (73 Partial with listed gaps, 2 Implemented). 286 automated tests pass (was 257); typecheck and production build are clean; `tests/e2e/finance-flow.cjs` was run in a real browser against the server, worker and database.
+
+- **Provider adapters** (`src/server/providers.ts`): one interface; `razorpay` (orders, HMAC-verified webhooks, order look-up, refunds; **not yet run against a live account**; no payouts) and `sandbox` (development and tests only, refused in staging/production). With `PAYMENT_PROVIDER` unset everything fails closed.
+- **Payments** (`payments.ts`, migration 017): payment intents for customer, organisation and store top-ups and for the subscription. Credit is posted only from a signature-verified event or a provider look-up, once (event dedupe on provider + event id, row lock, idempotent ledger key). Wrong amount or currency is quarantined and raised as an exception. A late success after local expiry is honoured. `reconcilePayments` (scheduler, every 5 minutes) finds payments whose browser closed, expires abandoned ones after 30 minutes and re-checks recent expired/failed ones. Subscription activation is now reachable only through this path.
+- **A pending store's administrator can now sign in** (only that role) to set up and pay; work is still blocked until the store is active.
+- **Vendor payable**: an online sale in a vendor store adds the gross retail amount to a `vendor_payable` account when the job is charged. Counter work and the direct store never do. Processing cost is not deducted again.
+- **Refunds** (`refunds.ts`): job-charge refunds (requested by the customer or store staff; approved by the store admin/finance, or by the owner for the direct store; executed by platform finance who must not be the approver) returned as credit **or** to the bank, never both; ceiling per job; full refund or the store's choice revokes downloads; payable reduced; after a payout the balance goes negative and carries forward. Unused-credit returns (approved by platform finance, executed by another): credit is taken out of circulation on approval and restored if the provider refuses. Unknown provider results are held, raised as an exception and resolved by `reconcileRefunds`; never re-sent.
+- **Corrections**: proposed by one finance identity, approved by another, posted once; negative corrections cannot exceed the available balance.
+- **Payout accounts and settlements** (`settlements.ts`): only the last four digits are stored; request, verify and approve are three different people. Monthly run (IST month): prepare from the ledgers, approve by someone else, start transfers with a per-attempt idempotency key; any change after approval (figures or payout account) cancels the approval; unknown transfers block retry until reconciled; confirmed failures can be retried. Stores with an open exception, no approved account or refunds in progress are held. Manual recording exists only behind `SETTLEMENT_MODE=manual`.
+- **Finance exceptions**: one tracked record per mismatch with owner, next action, deadline and evidence-backed closure.
+- **Platform operations** (`platformadmin.ts`): store review, suspend (support or owner) and reactivate (owner); people search and block; platform staff invite, role change and removal with last-owner and self-change protection; direct-store workspace and price; read-only configuration status with a test email to oneself; incident register with a fixed step order and owner-approved reopening.
+- **Screens**: `/credits`, `/pay/[id]`, `/vendor/billing`, `/admin/finance`, `/admin/operations`; refund request on `/jobs/[id]`; sign-in now routes each role to its home (`/api/me`).
+- **Step-up**: approving or executing money movements asks for a current authenticator code when the account has two-step sign-in, and is refused in staging/production for accounts without it. `platform_finance` is now in the default required roles.
+- **Dev seed** now also creates platform owner, support, two finance users and a store finance user.
+
+### Still not done after Part 28
+- Nothing has been deployed. No live provider run. Razorpay payouts are not implemented.
+- No invoices, receipts for online payments, or tax lines (tax treatment undecided).
+- Organisation unused-credit return; automatic store processing-credit correction after a refund; bulk provider-report reconciliation; CSV exports of ledgers and statements.
+- Restricted technical-developer role, per-capability staff grants, exceptional support-file access flow (approved, time-limited, audited).
+- Items already listed earlier that this part did not touch: back-side image, free crop, ticket attachments, malware scanning, HTML email and bounce handling, the Framer clean-up.
+- `tests/e2e/finance-flow.cjs` is a manual run, like the other browser scripts.

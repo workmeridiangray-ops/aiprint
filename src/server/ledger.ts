@@ -3,7 +3,7 @@ import { getPool, tx, AppError } from './db';
 
 type Q = { query: pg.Pool['query'] };
 
-export async function ensureAccount(c: Q, tenantId: string, kind: 'customer_service_credit' | 'vendor_processing_credit', ownerUserId: string | null): Promise<string> {
+export async function ensureAccount(c: Q, tenantId: string, kind: 'customer_service_credit' | 'vendor_processing_credit' | 'vendor_payable', ownerUserId: string | null): Promise<string> {
   const found = await c.query(
     `select id from ledger_accounts where tenant_id=$1 and kind=$2 and owner_user_id is not distinct from $3`, [tenantId, kind, ownerUserId]);
   if (found.rowCount) return found.rows[0].id;

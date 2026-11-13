@@ -57,7 +57,7 @@ export async function resolveActor(token: string | undefined, requestedTenantId:
   if (s.rows[0].enrol_only && !opts.allowEnrolOnly) throw new AppError('mfa_enrolment_required', 'Set up two-step sign-in to continue', 403);
   const m = await p.query(
     `select tenant_id, role from memberships m join tenants t on t.id=m.tenant_id
-     where m.user_id=$1 and m.revoked_at is null and t.status in ('active','closing') and ($2::uuid is null or m.tenant_id=$2::uuid)
+     where m.user_id=$1 and m.revoked_at is null and (t.status in ('active','closing') or (t.status='pending' and m.role='vendor_admin')) and ($2::uuid is null or m.tenant_id=$2::uuid)
      order by m.created_at limit 2`, [s.rows[0].user_id, requestedTenantId ?? null]);
   if (!m.rowCount) throw new AppError('denied', 'No access to this workspace', 403);
   if (!requestedTenantId && m.rowCount > 1) throw new AppError('tenant_required', 'Choose a workspace', 400);

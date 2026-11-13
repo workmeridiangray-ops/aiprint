@@ -22,7 +22,7 @@ services:
       - { key: MFA_ENC_KEY, sync: false }
       - { key: AUTH_HASH_SALT, sync: false }
       - { key: DOWNLOAD_LINK_SECRET, sync: false }
-      - { key: MFA_REQUIRED_ROLES, value: "platform_owner,platform_support" }
+      - { key: MFA_REQUIRED_ROLES, value: "platform_owner,platform_support,platform_finance" }
       - { key: EMAIL_DRIVER, value: smtp }
       - { key: EMAIL_FROM, sync: false }
       - { key: SMTP_HOST, sync: false }

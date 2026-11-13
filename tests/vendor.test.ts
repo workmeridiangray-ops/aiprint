@@ -23,7 +23,7 @@ describe('vendor onboarding, activation and portal', () => {
     await expect(V.getPortal('shop-one')).rejects.toMatchObject({ code: 'not_found' });
     await verifyEmail((await tok('owner@shop.test', 'verify_email')).token);
     const { token } = await login('owner@shop.test', PW);
-    await expect(resolveActor(token, undefined)).rejects.toMatchObject({ code: 'denied' }); // pending tenant: no workspace access yet
+    expect((await resolveActor(token, undefined)).role).toBe('vendor_admin'); // a pending store's administrator can sign in to set up and pay; nobody else can, and no work can start (canProcess)
     const tid = (await getPool().query("select tenant_id from vendor_profiles where slug='shop-one'")).rows[0].tenant_id;
     const r = await V.activateSubscription(tid, testPlanId, 'pay-1');
     expect(r.repeated).toBe(false);

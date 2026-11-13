@@ -179,7 +179,7 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
       <div className="bar"><button type="button" onClick={() => set({ offsetXMm: 0 })}>Centre across</button><button type="button" onClick={() => set({ offsetYMm: 0 })}>Centre down</button>
         <button type="button" onClick={() => set({ offsetXMm: 0, offsetYMm: 0, rotationDeg: 0, scale: 1 })}>Reset position</button></div></details>
     <div className="card"><button onClick={getQuote} disabled={!sourceId || state === 'conflict'}>Get price</button>
-      {quote && <p>Price ₹{(quote.customerAmountPaise / 100).toFixed(2)}, valid until {new Date(quote.expiresAt).toLocaleTimeString()}. <button onClick={reserve}>Hold funds and queue job</button></p>}</div>
+      {quote && <p>Price ₹{(quote.customerAmountPaise / 100).toFixed(2)}, valid until {new Date(quote.expiresAt).toLocaleTimeString()}. <button onClick={reserve}>Hold funds and queue job</button> <a href="/credits">Check or add credit</a></p>}</div>
     </fieldset>
   </main>;
 }

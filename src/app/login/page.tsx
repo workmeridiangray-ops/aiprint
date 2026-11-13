@@ -3,7 +3,12 @@ import { useState } from 'react';
 const j = { 'content-type': 'application/json' };
 export default function Login() {
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [challenge, setChallenge] = useState<string | null>(null);
-  async function land(enrolOnly: boolean) { if (enrolOnly) { location.href = '/account/security'; return; } const staff = await fetch('/api/platform/overview'); location.href = staff.ok ? '/admin' : '/projects'; }
+  async function land(enrolOnly: boolean) {
+    if (enrolOnly) { location.href = '/account/security'; return; }
+    const r = await fetch('/api/me'); const me = r.ok ? await r.json() : null;
+    const home: Record<string, string> = { platform_owner: '/admin', platform_support: '/admin', platform_finance: '/admin/finance', vendor_admin: me?.workspaceStatus === 'pending' ? '/vendor/billing' : '/vendor', vendor_finance: '/vendor/billing', vendor_counter: '/counter', vendor_support: '/support' };
+    location.href = home[me?.role] ?? '/projects';
+  }
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault(); setBusy(true); setErr('');
     const f = new FormData(e.currentTarget);
