@@ -1,10 +1,6 @@
 # DEMO blueprint: sandbox payments (fake money), dev seed accounts, files on a disk, emails written to disk.
-# FREE tier: app sleeps after 15 min idle, files vanish on restart, database expires after 30 days.
+# FREE tier: app sleeps after 15 min idle, files vanish on restart, database is external (Render allows one free Postgres per workspace and forgeline-db has it).
 # NOT for real customers. Production uses render.yaml. SEED_PASSWORD is set at approval time, never committed.
-databases:
-  - name: artwork-demo-db
-    plan: free
-    databaseName: artwork
 services:
   - type: web
     name: artwork-demo
@@ -19,5 +15,6 @@ services:
       - { key: STORAGE_LOCAL_DIR, value: /tmp/files }
       - { key: EMAIL_DRIVER, value: file }
       - { key: EMAIL_FILE_DIR, value: /tmp/mail }
-      - { key: DATABASE_URL, fromDatabase: { name: artwork-demo-db, property: connectionString } }
+      - { key: DATABASE_URL, sync: false }   # free Postgres from Neon or Supabase (direct, not pooled)
+      - { key: DATABASE_SSL, value: require }
       - { key: SEED_PASSWORD, sync: false }
