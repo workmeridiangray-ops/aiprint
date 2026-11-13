@@ -5,5 +5,5 @@ set -e
 export APP_URL="${APP_URL:-$RENDER_EXTERNAL_URL}"
 npm run migrate
 npm run seed:dev
-( while true; do NODE_OPTIONS=--max-old-space-size=160 npm run worker; sleep 5; done ) &
-NODE_OPTIONS=--max-old-space-size=200 exec npm run start -- -p "${PORT:-3000}"
+( while true; do LOW_MEMORY=1 VIPS_CONCURRENCY=1 MALLOC_ARENA_MAX=2 NODE_OPTIONS=--max-old-space-size=200 npm run worker; sleep 5; done ) &
+MALLOC_ARENA_MAX=2 NODE_OPTIONS=--max-old-space-size=200 exec npm run start -- -p "${PORT:-3000}"

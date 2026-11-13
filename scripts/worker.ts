@@ -1,3 +1,5 @@
+import sharp from 'sharp';
+if (process.env.LOW_MEMORY === '1') { sharp.cache(false); sharp.concurrency(1); } // small hosts (512 MB): no image cache, one thread
 import { workOnce, reapExpired } from '../src/server/worker';
 import { randomUUID } from 'node:crypto';
 import { waitForJob, queueConfigured } from '../src/server/queue';
